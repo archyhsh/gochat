@@ -1,0 +1,43 @@
+server:
+  name: file
+  addr: ":8084"
+  read_timeout: 60
+  write_timeout: 60
+
+log:
+  level: info
+  format: console
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:localhost:9000}
+  access_key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret_key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:gochat}
+  use_ssl: false
+
+jwt:
+  secret: ${JWT_SECRET:your-super-secret-key-change-in-production}
+  expire_time: 168
+
+# 文件限制
+file:
+  max_size: 104857600  # 100MB
+  allowed_types:
+    - image/jpeg
+    - image/png
+    - image/gif
+    - image/webp
+    - video/mp4
+    - video/webm
+    - audio/mpeg
+    - audio/wav
+    - application/pdf
+    - application/msword
+    - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+
+# 图片处理
+image:
+  thumbnail:
+    width: 200
+    height: 200
+    quality: 80

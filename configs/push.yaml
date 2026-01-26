@@ -1,0 +1,42 @@
+server:
+  name: push
+  addr: ":8083"
+  grpc_addr: ":9083"
+  read_timeout: 30
+  write_timeout: 30
+
+log:
+  level: info
+  format: console
+
+redis:
+  addr: ${REDIS_ADDR:localhost:6379}
+  password: ${REDIS_PASSWORD:}
+  db: 0
+  pool_size: 100
+
+kafka:
+  brokers:
+    - ${KAFKA_BROKERS:localhost:9092}
+  consumer_group: push-group
+  topics:
+    message: message-topic
+    push: push-topic
+
+jwt:
+  secret: ${JWT_SECRET:your-super-secret-key-change-in-production}
+  expire_time: 168
+
+# APNs 配置 (iOS 推送)
+apns:
+  enabled: false
+  key_file: ""
+  key_id: ""
+  team_id: ""
+  bundle_id: ""
+  production: false
+
+# FCM 配置 (Android 推送)
+fcm:
+  enabled: false
+  credentials_file: ""

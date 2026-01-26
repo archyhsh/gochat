@@ -1,0 +1,68 @@
+# 二进制文件
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试
+*.test
+coverage.out
+coverage.html
+
+# 依赖
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/
+
+# 配置 (敏感信息)
+configs/*.local.yaml
+.env
+.env.*
+
+# 临时文件
+tmp/
+temp/
+
+# 构建产物
+dist/
+
+# 前端
+web/node_modules/
+web/dist/
+
+# Docker
+.docker/
+
+# Air (热重载)
+.air.*.toml
+
+# Swagger 生成文件
+docs/swagger/
+
+# 证书
+*.pem
+*.key
+*.crt
+
+# 数据文件
+data/
+*.db
+*.sqlite
+
+# Kubernetes secrets
+deployments/k8s/secrets/

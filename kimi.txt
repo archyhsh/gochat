@@ -1,0 +1,285 @@
+高并发IM即时通讯系统 - 项目计划
+项目概览
+| 项目名称 | GoIM - 高并发即时通讯系统 |
+|---------|------------------------|
+| 开发周期 | 3-4周 (全职开发) |
+| 技术栈 | Go, WebSocket, MySQL, Redis, Kafka, K8s |
+| 目标 | 简历项目 + 技术学习 |
+---
+系统架构图
+                                    ┌─────────────────────────────────────────────┐
+                                    │              Kubernetes Cluster             │
+                                    │  ┌─────────────────────────────────────┐   │
+    ┌──────────┐                    │  │         API Gateway (Kong/Nginx)    │   │
+    │  Web     │◄──── WebSocket ────┼──┤                                     │   │
+    │  Client  │                    │  └──────────────┬──────────────────────┘   │
+    └──────────┘                    │                 │                          │
+                                    │  ┌──────────────▼──────────────────────┐   │
+    ┌──────────┐                    │  │     Gateway Service (WebSocket)     │   │
+    │  Mobile  │◄──── WebSocket ────┼──┤  • Goroutine per connection         │   │
+    │  Client  │                    │  │  • Channel-based message routing    │   │
+    └──────────┘                    │  │  • Connection pool management       │   │
+                                    │  └──────────────┬──────────────────────┘   │
+                                    │                 │ gRPC                     │
+                                    │  ┌──────────────▼──────────────────────┐   │
+                                    │  │         Message Service             │   │
+                                    │  │  • Message persistence (MySQL)      │   │
+                                    │  │  • Message routing via Kafka        │   │
+                                    │  │  • Read/Unread status               │   │
+                                    │  └──────────────┬──────────────────────┘   │
+                                    │                 │                          │
+                                    │  ┌──────────────┴──────────────────────┐   │
+                                    │  │                                     │   │
+                                    │  ▼                                     ▼   │
+                                    │ ┌────────────────┐   ┌────────────────┐   │
+                                    │ │Relation Service│   │  Push Service  │   │
+                                    │ │• Friend/Group  │   │• Online push   │   │
+                                    │ │• Block list    │   │• APNs/FCM      │   │
+                                    │ └────────────────┘   └────────────────┘   │
+                                    │                                            │
+                                    │  ┌─────────────────────────────────────┐   │
+                                    │  │          File Service               │   │
+                                    │  │  • Upload/Download                  │   │
+                                    │  │  • Image thumbnail                  │   │
+                                    │  │  • MinIO/S3 storage                 │   │
+                                    │  └─────────────────────────────────────┘   │
+                                    │                                            │
+                                    │  ┌─────────────────────────────────────┐   │
+                                    │  │        Infrastructure Layer         │   │
+                                    │  │  MySQL | Redis | Kafka | MinIO      │   │
+                                    │  └─────────────────────────────────────┘   │
+                                    └─────────────────────────────────────────────┘
+---
+技术栈详情
+| 层级 | 技术选型 | 用途 |
+|-----|---------|-----|
+| 网关层 | Go + gorilla/websocket | WebSocket长连接管理 |
+| 服务间通信 | gRPC + Protobuf | 微服务内部通信 |
+| 消息队列 | Kafka | 消息异步分发、削峰填谷 |
+| 缓存 | Redis | 会话缓存、在线状态、热点消息 |
+| 持久化 | MySQL | 消息存储、用户数据、关系数据 |
+| 文件存储 | MinIO | 兼容S3的对象存储 |
+| 服务发现 | etcd/Consul | 服务注册与发现 |
+| 容器编排 | Kubernetes | 服务部署、扩缩容 |
+| 监控 | Prometheus + Grafana | 性能监控、告警 |
+| 前端 | Vue 3 / React | 简单聊天演示界面 |
+---
+核心模块详细设计
+1. Gateway Service (网关服务) - 核心亮点
+简历亮点: 使用 Goroutine + Channel 实现高并发连接管理
+// 核心数据结构示意
+type ConnectionManager struct {
+    connections sync.Map              // connID -> *Connection
+    userConns   sync.Map              // userID -> []*Connection (多端登录)
+    broadcast   chan *Message         // 广播channel
+    register    chan *Connection      // 注册channel
+    unregister  chan *Connection      // 注销channel
+}
+type Connection struct {
+    ID        string
+    UserID    string
+    Conn      *websocket.Conn
+    Send      chan []byte            // 每个连接独立的发送channel
+    closeChan chan struct{}
+}
+核心功能:
+- [ ] WebSocket连接管理 (Connect/Disconnect/Heartbeat)
+- [ ] 用户认证 (JWT Token验证)
+- [ ] 多设备同时在线支持
+- [ ] 消息路由 (点对点/群组/广播)
+- [ ] 连接健康检查与自动重连提示
+- [ ] 优雅关闭与连接迁移
+---
+2. Message Service (消息服务)
+简历亮点: Kafka异步消息队列 + MySQL持久化 + Redis缓存
+消息流程:
+发送方 -> Gateway -> Kafka -> Message Service -> MySQL + Redis -> Kafka -> Gateway -> 接收方
+核心功能:
+- [ ] 消息发送 (私聊/群聊)
+- [ ] 消息存储 (MySQL分表设计)
+- [ ] 消息状态 (发送中/已发送/已读)
+- [ ] 历史消息拉取 (游标分页)
+- [ ] 消息撤回 (软删除)
+- [ ] 消息类型支持 (文本/图片/文件/语音)
+数据库设计:
+-- 消息表 (按月分表)
+CREATE TABLE message_202601 (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    msg_id VARCHAR(64) UNIQUE,           -- 分布式ID (Snowflake)
+    conversation_id VARCHAR(64) INDEX,   -- 会话ID
+    sender_id BIGINT INDEX,
+    receiver_id BIGINT,                  -- 私聊时有效
+    group_id BIGINT,                     -- 群聊时有效
+    msg_type TINYINT,                    -- 1:文本 2:图片 3:文件...
+    content TEXT,
+    status TINYINT DEFAULT 0,            -- 0:正常 1:撤回
+    created_at TIMESTAMP INDEX,
+    KEY idx_conv_time (conversation_id, created_at)
+);
+---
+3. Relation Service (关系服务)
+核心功能:
+- [ ] 好友关系 (添加/删除/备注)
+- [ ] 好友申请流程 (申请/同意/拒绝)
+- [ ] 黑名单管理
+- [ ] 群组管理 (创建/加入/退出/解散)
+- [ ] 群成员管理 (管理员/禁言)
+- [ ] 群公告
+数据模型:
+-- 好友关系表 (双向存储)
+CREATE TABLE friendship (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT,
+    friend_id BIGINT,
+    remark VARCHAR(50),
+    status TINYINT,        -- 0:正常 1:拉黑
+    created_at TIMESTAMP,
+    UNIQUE KEY uk_user_friend (user_id, friend_id)
+);
+-- 群组表
+CREATE TABLE `group` (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(100),
+    avatar VARCHAR(255),
+    owner_id BIGINT,
+    max_members INT DEFAULT 500,
+    created_at TIMESTAMP
+);
+-- 群成员表
+CREATE TABLE group_member (
+    id BIGINT PRIMARY KEY,
+    group_id BIGINT,
+    user_id BIGINT,
+    role TINYINT,          -- 0:成员 1:管理员 2:群主
+    nickname VARCHAR(50),
+    muted_until TIMESTAMP,
+    joined_at TIMESTAMP,
+    UNIQUE KEY uk_group_user (group_id, user_id)
+);
+---
+4. Push Service (推送服务)
+简历亮点: 在线推送 + 离线推送双通道
+核心功能:
+- [ ] 在线推送 (通过Gateway WebSocket)
+- [ ] 离线推送 (APNs/FCM集成)
+- [ ] 推送策略 (免打扰/静音)
+- [ ] 未读消息计数
+- [ ] 推送模板管理
+- [ ] 推送统计
+架构设计:
+                    ┌──────────────┐
+                    │   Message    │
+                    │   Service    │
+                    └──────┬───────┘
+                           │ Kafka
+                    ┌──────▼───────┐
+                    │    Push      │
+                    │   Service    │
+                    └──────┬───────┘
+                           │
+           ┌───────────────┼───────────────┐
+           │               │               │
+    ┌──────▼─────┐  ┌──────▼─────┐  ┌──────▼─────┐
+    │   Check    │  │   Online   │  │  Offline   │
+    │   Status   │  │    Push    │  │    Push    │
+    │  (Redis)   │  │ (Gateway)  │  │ (APNs/FCM) │
+    └────────────┘  └────────────┘  └────────────┘
+---
+5. File Service (文件服务)
+核心功能:
+- [ ] 文件上传 (预签名URL直传MinIO)
+- [ ] 文件下载 (临时URL)
+- [ ] 图片处理 (缩略图生成)
+- [ ] 文件类型校验
+- [ ] 文件大小限制
+- [ ] 存储配额管理
+---
+开发计划 (3-4周)
+第一周: 基础架构 + Gateway
+| 天数 | 任务 | 产出 |
+|-----|------|-----|
+| Day 1-2 | 项目初始化 | 项目结构、Docker Compose开发环境、CI/CD基础配置 |
+| Day 3-4 | Gateway核心 | WebSocket服务、连接管理、Channel消息分发 |
+| Day 5-6 | 用户认证 | JWT认证、用户服务基础、登录注册API |
+| Day 7 | 集成测试 | Gateway压测、WebSocket客户端测试 |
+第二周: 消息服务 + 关系服务
+| 天数 | 任务 | 产出 |
+|-----|------|-----|
+| Day 8-9 | Message Service | 消息存储、Kafka集成、私聊消息流转 |
+| Day 10-11 | 群聊功能 | 群消息广播、Relation Service基础 |
+| Day 12-13 | 关系服务完善 | 好友系统、群组管理 |
+| Day 14 | Redis缓存 | 在线状态、热点消息缓存、未读计数 |
+第三周: 推送服务 + 文件服务
+| 天数 | 任务 | 产出 |
+|-----|------|-----|
+| Day 15-16 | Push Service | 在线推送、离线推送集成 |
+| Day 17-18 | File Service | MinIO集成、文件上传下载、图片缩略图 |
+| Day 19-20 | 前端界面 | Vue/React简单聊天界面 |
+| Day 21 | 功能联调 | 端到端测试、Bug修复 |
+第四周: K8s部署 + 优化
+| 天数 | 任务 | 产出 |
+|-----|------|-----|
+| Day 22-23 | K8s部署 | Helm Charts、服务部署、Ingress配置 |
+| Day 24-25 | 监控告警 | Prometheus + Grafana、日志收集 |
+| Day 26-27 | 性能优化 | 压测、瓶颈分析、优化 |
+| Day 28 | 文档完善 | README、架构文档、API文档 |
+---
+简历亮点提炼
+完成这个项目后，你可以在简历上突出以下技术点：
+1. 高并发架构设计
+> 设计并实现支持 10万+ 并发连接的IM系统，使用 Goroutine + Channel 模型管理WebSocket长连接
+2. 分布式消息系统
+> 基于 Kafka 实现消息异步分发，通过消息队列解耦服务，实现 削峰填谷，消息吞吐量达 5万条/秒
+3. 多层缓存架构
+> 设计 MySQL + Redis 分层存储方案，热点数据命中率 *95%+*，消息读取延迟 <10ms
+4. 微服务实践
+> 采用 gRPC + Protobuf 进行服务间通信，实现服务注册发现、负载均衡、熔断降级
+5. 云原生部署
+> 使用 Kubernetes 进行容器编排，实现服务的 自动扩缩容、滚动更新、健康检查
+---
+项目目录结构建议
+goim/
+├── cmd/                          # 各服务入口
+│   ├── gateway/
+│   ├── message/
+│   ├── relation/
+│   ├── push/
+│   └── file/
+├── internal/                     # 内部包
+│   ├── gateway/
+│   │   ├── server/               # WebSocket服务
+│   │   ├── connection/           # 连接管理
+│   │   └── router/               # 消息路由
+│   ├── message/
+│   ├── relation/
+│   ├── push/
+│   └── file/
+├── pkg/                          # 公共包
+│   ├── auth/                     # JWT认证
+│   ├── cache/                    # Redis封装
+│   ├── db/                       # MySQL封装
+│   ├── kafka/                    # Kafka封装
+│   ├── logger/                   # 日志
+│   └── snowflake/                # 分布式ID
+├── api/                          # Protobuf定义
+│   └── proto/
+├── configs/                      # 配置文件
+├── deployments/                  # 部署相关
+│   ├── docker/
+│   ├── k8s/
+│   └── helm/
+├── scripts/                      # 脚本
+├── web/                          # 前端代码
+├── docs/                         # 文档
+├── Makefile
+├── docker-compose.yml
+└── README.md
+---
+潜在挑战与解决方案
+| 挑战 | 解决方案 |
+|-----|---------|
+| 消息顺序性保证 | Kafka分区策略 (同一会话同一分区) + 消息序号 |
+| 多端消息同步 | 设备级别的消息ACK + 拉取补偿机制 |
+| 群聊消息扩散 | 写扩散 vs 读扩散权衡，小群写扩散，大群读扩散 |
+| 连接数扩展 | Gateway多实例部署 + 一致性Hash路由 |
+| 消息存储增长 | 按时间分表 + 历史消息归档 |

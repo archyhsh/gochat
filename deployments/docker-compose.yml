@@ -1,0 +1,270 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: gochat-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: gochat
+      MYSQL_USER: gochat
+      MYSQL_PASSWORD: gochat123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: gochat-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Zookeeper (Kafka 依赖)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: gochat-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+
+  # Kafka 消息队列
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: gochat-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Kafka UI (可选，用于调试)
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: gochat-kafka-ui
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: gochat
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: gochat-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # etcd 服务发现
+  etcd:
+    image: bitnami/etcd:3.5
+    container_name: gochat-etcd
+    restart: unless-stopped
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: http://etcd:2379
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    volumes:
+      - etcd_data:/bitnami/etcd
+
+  # Gateway 服务
+  gateway:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.gateway
+    container_name: gochat-gateway
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:29092
+      ETCD_ENDPOINTS: etcd:2379
+    volumes:
+      - ../configs:/app/configs
+
+  # Message 服务
+  message:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.message
+    container_name: gochat-message
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+      - kafka
+    ports:
+      - "8081:8081"
+      - "9081:9081"
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../configs:/app/configs
+
+  # Relation 服务
+  relation:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.relation
+    container_name: gochat-relation
+    restart: unless-stopped
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8082:8082"
+      - "9082:9082"
+    environment:
+      MYSQL_HOST: mysql
+      REDIS_ADDR: redis:6379
+    volumes:
+      - ../configs:/app/configs
+
+  # Push 服务
+  push:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.push
+    container_name: gochat-push
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - kafka
+    ports:
+      - "8083:8083"
+      - "9083:9083"
+    environment:
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: kafka:29092
+    volumes:
+      - ../configs:/app/configs
+
+  # File 服务
+  file:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.file
+    container_name: gochat-file
+    restart: unless-stopped
+    depends_on:
+      - minio
+    ports:
+      - "8084:8084"
+    environment:
+      MINIO_ENDPOINT: minio:9000
+    volumes:
+      - ../configs:/app/configs
+
+  # Prometheus 监控
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: gochat-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana 可视化
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: gochat-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+
+volumes:
+  mysql_data:
+  redis_data:
+  zookeeper_data:
+  zookeeper_log:
+  kafka_data:
+  minio_data:
+  etcd_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: gochat-network
