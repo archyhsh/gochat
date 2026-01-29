@@ -2,40 +2,38 @@ package handler
 
 import (
 	"encoding/json"
+	"time"
 
-	"github.com/yourusername/gochat/internal/gateway/connection"
-	"github.com/yourusername/gochat/pkg/logger"
+	"github.com/archyhsh/gochat/internal/gateway/connection"
+	"github.com/archyhsh/gochat/pkg/kafka"
+	"github.com/archyhsh/gochat/pkg/logger"
 )
 
-// MessageType 消息类型
 type MessageType string
 
 const (
-	TypeChat      MessageType = "chat"      // 聊天消息
-	TypeAck       MessageType = "ack"       // 消息确认
-	TypeRead      MessageType = "read"      // 已读回执
-	TypeTyping    MessageType = "typing"    // 正在输入
-	TypeOnline    MessageType = "online"    // 上线通知
-	TypeOffline   MessageType = "offline"   // 下线通知
-	TypeHeartbeat MessageType = "heartbeat" // 心跳
-	TypeError     MessageType = "error"     // 错误
+	TypeChat      MessageType = "chat"
+	TypeAck       MessageType = "ack"
+	TypeRead      MessageType = "read"
+	TypeTyping    MessageType = "typing"
+	TypeOnline    MessageType = "online"
+	TypeOffline   MessageType = "offline"
+	TypeHeartbeat MessageType = "heartbeat"
+	TypeError     MessageType = "error"
 )
 
-// IncomingMessage 接收的消息
 type IncomingMessage struct {
 	Type    MessageType     `json:"type"`
 	Data    json.RawMessage `json:"data"`
 	TraceID string          `json:"trace_id,omitempty"`
 }
 
-// OutgoingMessage 发送的消息
 type OutgoingMessage struct {
 	Type    MessageType `json:"type"`
 	Data    interface{} `json:"data"`
 	TraceID string      `json:"trace_id,omitempty"`
 }
 
-// ChatMessage 聊天消息
 type ChatMessage struct {
 	MsgID          string `json:"msg_id"`
 	ConversationID string `json:"conversation_id"`
@@ -47,58 +45,58 @@ type ChatMessage struct {
 	Timestamp      int64  `json:"timestamp"`
 }
 
-// AckMessage 确认消息
+// status=1: 已发送, status=2: 已送达, status=3: 已读
 type AckMessage struct {
 	MsgID  string `json:"msg_id"`
-	Status int    `json:"status"` // 1: 已发送, 2: 已送达, 3: 已读
+	Status int    `json:"status"`
 }
 
-// ReadMessage 已读消息
 type ReadMessage struct {
 	ConversationID string   `json:"conversation_id"`
 	MsgIDs         []string `json:"msg_ids"`
 }
 
-// TypingMessage 正在输入
 type TypingMessage struct {
 	ConversationID string `json:"conversation_id"`
 	IsTyping       bool   `json:"is_typing"`
 }
 
-// ErrorMessage 错误消息
 type ErrorMessage struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 }
 
-// MessageHandler 消息处理器
-type MessageHandler struct {
-	manager *connection.Manager
-	logger  logger.Logger
+type KafkaMessage struct {
+	Type    string      `json:"type"`
+	Data    interface{} `json:"data"`
+	TraceID string      `json:"trace_id,omitempty"`
 }
 
-// NewMessageHandler 创建消息处理器
-func NewMessageHandler(manager *connection.Manager, log logger.Logger) *MessageHandler {
+type MessageHandler struct {
+	manager  *connection.Manager
+	producer *kafka.Producer
+	logger   logger.Logger
+}
+
+func NewMessageHandler(manager *connection.Manager, producer *kafka.Producer, log logger.Logger) *MessageHandler {
 	return &MessageHandler{
-		manager: manager,
-		logger:  log,
+		manager:  manager,
+		producer: producer,
+		logger:   log,
 	}
 }
 
-// Handle 处理消息
 func (h *MessageHandler) Handle(conn *connection.Connection, data []byte) error {
 	var msg IncomingMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
 		h.sendError(conn, 400, "invalid message format")
 		return err
 	}
-
 	h.logger.Debug("Received message",
 		"connID", conn.ID,
 		"userID", conn.UserID,
 		"type", msg.Type,
 	)
-
 	switch msg.Type {
 	case TypeChat:
 		return h.handleChat(conn, msg)
@@ -116,21 +114,36 @@ func (h *MessageHandler) Handle(conn *connection.Connection, data []byte) error 
 	}
 }
 
-// handleChat 处理聊天消息
 func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMessage) error {
 	var chatMsg ChatMessage
 	if err := json.Unmarshal(msg.Data, &chatMsg); err != nil {
 		h.sendError(conn, 400, "invalid chat message")
 		return err
 	}
-
-	// 设置发送者
 	chatMsg.SenderID = conn.UserID
+	chatMsg.Timestamp = time.Now().UnixMilli()
 
-	// TODO: 发送到 Kafka 进行异步处理
-	// TODO: 持久化到数据库
+	if h.producer != nil {
+		kafkaMsg := KafkaMessage{
+			Type:    string(TypeChat),
+			Data:    chatMsg,
+			TraceID: msg.TraceID,
+		}
+		data, _ := json.Marshal(kafkaMsg)
+		if err := h.producer.Send([]byte(chatMsg.MsgID), data); err != nil {
+			h.logger.Error("Failed to send message to Kafka",
+				"msgID", chatMsg.MsgID,
+				"error", err,
+			)
+		} else {
+			h.logger.Debug("Message sent to Kafka",
+				"msgID", chatMsg.MsgID,
+				"conversationID", chatMsg.ConversationID,
+			)
+		}
+	}
 
-	// 如果是私聊，直接发送给接收者
+	// private chat: A to B
 	if chatMsg.ReceiverID > 0 {
 		outMsg := OutgoingMessage{
 			Type:    TypeChat,
@@ -139,8 +152,6 @@ func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMes
 		}
 		data, _ := json.Marshal(outMsg)
 		h.manager.SendToUser(chatMsg.ReceiverID, data)
-
-		// 发送 ACK 给发送者
 		h.sendAck(conn, chatMsg.MsgID, 1, msg.TraceID)
 	}
 
@@ -149,7 +160,6 @@ func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMes
 	return nil
 }
 
-// handleAck 处理确认消息
 func (h *MessageHandler) handleAck(conn *connection.Connection, msg IncomingMessage) error {
 	var ackMsg AckMessage
 	if err := json.Unmarshal(msg.Data, &ackMsg); err != nil {
@@ -161,7 +171,6 @@ func (h *MessageHandler) handleAck(conn *connection.Connection, msg IncomingMess
 	return nil
 }
 
-// handleRead 处理已读回执
 func (h *MessageHandler) handleRead(conn *connection.Connection, msg IncomingMessage) error {
 	var readMsg ReadMessage
 	if err := json.Unmarshal(msg.Data, &readMsg); err != nil {
@@ -174,7 +183,6 @@ func (h *MessageHandler) handleRead(conn *connection.Connection, msg IncomingMes
 	return nil
 }
 
-// handleTyping 处理正在输入
 func (h *MessageHandler) handleTyping(conn *connection.Connection, msg IncomingMessage) error {
 	var typingMsg TypingMessage
 	if err := json.Unmarshal(msg.Data, &typingMsg); err != nil {
@@ -186,9 +194,7 @@ func (h *MessageHandler) handleTyping(conn *connection.Connection, msg IncomingM
 	return nil
 }
 
-// handleHeartbeat 处理心跳
 func (h *MessageHandler) handleHeartbeat(conn *connection.Connection, msg IncomingMessage) error {
-	// 回复心跳
 	outMsg := OutgoingMessage{
 		Type:    TypeHeartbeat,
 		Data:    map[string]string{"status": "pong"},
@@ -198,7 +204,6 @@ func (h *MessageHandler) handleHeartbeat(conn *connection.Connection, msg Incomi
 	return conn.SendMessage(json.RawMessage(data))
 }
 
-// sendError 发送错误消息
 func (h *MessageHandler) sendError(conn *connection.Connection, code int, message string) {
 	outMsg := OutgoingMessage{
 		Type: TypeError,
@@ -211,7 +216,6 @@ func (h *MessageHandler) sendError(conn *connection.Connection, code int, messag
 	conn.SendMessage(json.RawMessage(data))
 }
 
-// sendAck 发送确认消息
 func (h *MessageHandler) sendAck(conn *connection.Connection, msgID string, status int, traceID string) {
 	outMsg := OutgoingMessage{
 		Type: TypeAck,

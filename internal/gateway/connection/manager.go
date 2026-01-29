@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/yourusername/gochat/pkg/logger"
+	"github.com/archyhsh/gochat/pkg/logger"
 )
 
 var (
@@ -14,10 +14,9 @@ var (
 	ErrUserNotOnline      = errors.New("user not online")
 )
 
-// Manager 连接管理器
 type Manager struct {
-	connections    sync.Map // connID -> *Connection
-	userConns      sync.Map // userID -> sync.Map[connID]*Connection
+	connections    sync.Map
+	userConns      sync.Map
 	register       chan *Connection
 	unregister     chan *Connection
 	broadcast      chan *BroadcastMessage
@@ -27,18 +26,15 @@ type Manager struct {
 	closeOnce      sync.Once
 }
 
-// BroadcastMessage 广播消息
 type BroadcastMessage struct {
-	UserIDs []int64 // 目标用户列表，为空则广播给所有人
+	UserIDs []int64
 	Data    []byte
 }
 
-// MessageHandler 消息处理接口
 type MessageHandler interface {
 	Handle(conn *Connection, data []byte) error
 }
 
-// NewManager 创建连接管理器
 func NewManager(log logger.Logger) *Manager {
 	m := &Manager{
 		register:   make(chan *Connection, 256),
@@ -50,17 +46,14 @@ func NewManager(log logger.Logger) *Manager {
 	return m
 }
 
-// SetMessageHandler 设置消息处理器
 func (m *Manager) SetMessageHandler(handler MessageHandler) {
 	m.messageHandler = handler
 }
 
-// Start 启动管理器
 func (m *Manager) Start() {
 	go m.run()
 }
 
-// run 运行管理器主循环
 func (m *Manager) run() {
 	for {
 		select {
@@ -80,12 +73,9 @@ func (m *Manager) run() {
 	}
 }
 
-// handleRegister 处理连接注册
 func (m *Manager) handleRegister(conn *Connection) {
-	// 存储连接
 	m.connections.Store(conn.ID, conn)
 
-	// 存储用户连接映射（支持多端登录）
 	userConnsInterface, _ := m.userConns.LoadOrStore(conn.UserID, &sync.Map{})
 	userConns := userConnsInterface.(*sync.Map)
 	userConns.Store(conn.ID, conn)
@@ -97,15 +87,11 @@ func (m *Manager) handleRegister(conn *Connection) {
 	)
 }
 
-// handleUnregister 处理连接注销
 func (m *Manager) handleUnregister(conn *Connection) {
 	if _, ok := m.connections.LoadAndDelete(conn.ID); ok {
-		// 从用户连接映射中删除
 		if userConnsInterface, ok := m.userConns.Load(conn.UserID); ok {
 			userConns := userConnsInterface.(*sync.Map)
 			userConns.Delete(conn.ID)
-
-			// 检查用户是否还有其他连接
 			empty := true
 			userConns.Range(func(key, value interface{}) bool {
 				empty = false
@@ -115,10 +101,7 @@ func (m *Manager) handleUnregister(conn *Connection) {
 				m.userConns.Delete(conn.UserID)
 			}
 		}
-
-		// 关闭发送 channel
 		close(conn.Send)
-
 		m.logger.Info("Connection unregistered",
 			"connID", conn.ID,
 			"userID", conn.UserID,
@@ -126,28 +109,27 @@ func (m *Manager) handleUnregister(conn *Connection) {
 	}
 }
 
-// handleBroadcast 处理广播消息
 func (m *Manager) handleBroadcast(msg *BroadcastMessage) {
 	if len(msg.UserIDs) == 0 {
-		// 广播给所有连接
 		m.connections.Range(func(key, value interface{}) bool {
 			conn := value.(*Connection)
 			select {
 			case conn.Send <- msg.Data:
 			default:
-				// 发送缓冲区满，跳过
+				m.logger.Warn("Broadcast buffer full, message dropped",
+					"connID", conn.ID,
+					"userID", conn.UserID,
+				)
 			}
 			return true
 		})
 	} else {
-		// 发送给指定用户
 		for _, userID := range msg.UserIDs {
 			m.SendToUser(userID, msg.Data)
 		}
 	}
 }
 
-// handleShutdown 处理关闭
 func (m *Manager) handleShutdown() {
 	m.connections.Range(func(key, value interface{}) bool {
 		conn := value.(*Connection)
@@ -157,27 +139,22 @@ func (m *Manager) handleShutdown() {
 	})
 }
 
-// Register 注册连接
 func (m *Manager) Register(conn *Connection) {
 	m.register <- conn
 }
 
-// Unregister 注销连接
 func (m *Manager) Unregister(conn *Connection) {
 	m.unregister <- conn
 }
 
-// Broadcast 广播消息
 func (m *Manager) Broadcast(data []byte) {
 	m.broadcast <- &BroadcastMessage{Data: data}
 }
 
-// BroadcastToUsers 广播给指定用户
 func (m *Manager) BroadcastToUsers(userIDs []int64, data []byte) {
 	m.broadcast <- &BroadcastMessage{UserIDs: userIDs, Data: data}
 }
 
-// SendToUser 发送消息给用户（所有设备）
 func (m *Manager) SendToUser(userID int64, data []byte) error {
 	userConnsInterface, ok := m.userConns.Load(userID)
 	if !ok {
@@ -190,7 +167,10 @@ func (m *Manager) SendToUser(userID int64, data []byte) error {
 		select {
 		case conn.Send <- data:
 		default:
-			// 发送缓冲区满
+			m.logger.Warn("SendToUser buffer full, message dropped",
+				"connID", conn.ID,
+				"userID", userID,
+			)
 		}
 		return true
 	})
@@ -198,7 +178,6 @@ func (m *Manager) SendToUser(userID int64, data []byte) error {
 	return nil
 }
 
-// SendToConnection 发送消息给指定连接
 func (m *Manager) SendToConnection(connID string, data []byte) error {
 	connInterface, ok := m.connections.Load(connID)
 	if !ok {
@@ -214,13 +193,11 @@ func (m *Manager) SendToConnection(connID string, data []byte) error {
 	}
 }
 
-// IsUserOnline 检查用户是否在线
 func (m *Manager) IsUserOnline(userID int64) bool {
 	_, ok := m.userConns.Load(userID)
 	return ok
 }
 
-// GetUserConnections 获取用户所有连接
 func (m *Manager) GetUserConnections(userID int64) []*Connection {
 	userConnsInterface, ok := m.userConns.Load(userID)
 	if !ok {
@@ -237,7 +214,6 @@ func (m *Manager) GetUserConnections(userID int64) []*Connection {
 	return conns
 }
 
-// GetOnlineUserCount 获取在线用户数
 func (m *Manager) GetOnlineUserCount() int {
 	count := 0
 	m.userConns.Range(func(key, value interface{}) bool {
@@ -247,7 +223,6 @@ func (m *Manager) GetOnlineUserCount() int {
 	return count
 }
 
-// GetConnectionCount 获取连接数
 func (m *Manager) GetConnectionCount() int {
 	count := 0
 	m.connections.Range(func(key, value interface{}) bool {
@@ -257,7 +232,6 @@ func (m *Manager) GetConnectionCount() int {
 	return count
 }
 
-// HandleMessage 处理收到的消息
 func (m *Manager) HandleMessage(conn *Connection, data []byte) {
 	if m.messageHandler != nil {
 		if err := m.messageHandler.Handle(conn, data); err != nil {
@@ -269,14 +243,16 @@ func (m *Manager) HandleMessage(conn *Connection, data []byte) {
 	}
 }
 
-// Shutdown 关闭管理器
 func (m *Manager) Shutdown() {
 	m.closeOnce.Do(func() {
 		close(m.closeChan)
 	})
 }
 
-// Message 消息结构
+func (m *Manager) Logger() logger.Logger {
+	return m.logger
+}
+
 type Message struct {
 	Type string          `json:"type"`
 	Data json.RawMessage `json:"data"`

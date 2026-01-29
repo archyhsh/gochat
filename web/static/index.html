@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoChat WebSocket Demo</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; color: #333; margin-bottom: 20px; }
+        .panel { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .panel h3 { margin-bottom: 15px; color: #666; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 14px; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #666; font-size: 14px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .form-row { display: flex; gap: 10px; }
+        .form-row .form-group { flex: 1; }
+        button { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background 0.2s; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .buttons { display: flex; gap: 10px; }
+        #messages { height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 10px; background: #fafafa; font-family: monospace; font-size: 13px; }
+        .msg { padding: 5px 0; border-bottom: 1px solid #eee; }
+        .msg.sent { color: #007bff; }
+        .msg.received { color: #28a745; }
+        .msg.error { color: #dc3545; }
+        .msg.system { color: #6c757d; font-style: italic; }
+        .msg .time { color: #999; margin-right: 10px; }
+        .stats { display: flex; gap: 20px; }
+        .stat-item { text-align: center; }
+        .stat-item .value { font-size: 24px; font-weight: bold; color: #007bff; }
+        .stat-item .label { font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GoChat WebSocket Demo</h1>
+        
+        <!-- 连接面板 -->
+        <div class="panel">
+            <h3>连接设置</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>WebSocket 地址</label>
+                    <input type="text" id="wsUrl" value="ws://localhost:8080/ws">
+                </div>
+                <div class="form-group">
+                    <label>Token (JWT)</label>
+                    <input type="text" id="token" placeholder="输入 JWT Token">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>设备 ID</label>
+                    <input type="text" id="deviceId" placeholder="可选，不填自动生成">
+                </div>
+                <div class="form-group">
+                    <label>平台</label>
+                    <select id="platform">
+                        <option value="web">Web</option>
+                        <option value="ios">iOS</option>
+                        <option value="android">Android</option>
+                    </select>
+                </div>
+            </div>
+            <div class="buttons">
+                <button id="connectBtn" class="btn-primary" onclick="connect()">连接</button>
+                <button id="disconnectBtn" class="btn-danger" onclick="disconnect()" disabled>断开</button>
+                <span class="status disconnected" id="statusBadge">未连接</span>
+            </div>
+        </div>
+
+        <!-- 发送消息面板 -->
+        <div class="panel">
+            <h3>发送消息</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>消息类型</label>
+                    <select id="msgType">
+                        <option value="chat">chat - 聊天消息</option>
+                        <option value="heartbeat">heartbeat - 心跳</option>
+                        <option value="typing">typing - 正在输入</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>接收者 ID</label>
+                    <input type="number" id="receiverId" value="2" placeholder="用户ID">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>消息内容</label>
+                <input type="text" id="content" placeholder="输入消息内容" value="Hello, GoChat!">
+            </div>
+            <button class="btn-success" onclick="sendMessage()" id="sendBtn" disabled>发送消息</button>
+        </div>
+
+        <!-- 消息日志 -->
+        <div class="panel">
+            <h3>消息日志 <button style="float:right;font-size:12px;padding:5px 10px;" onclick="clearMessages()">清空</button></h3>
+            <div id="messages"></div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="panel">
+            <h3>快捷操作</h3>
+            <div class="buttons">
+                <button class="btn-primary" onclick="sendHeartbeat()">发送心跳</button>
+                <button class="btn-primary" onclick="fetchStats()">获取统计</button>
+                <button class="btn-primary" onclick="generateToken()">生成测试Token</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let msgCount = 0;
+
+        function log(type, message) {
+            const now = new Date().toLocaleTimeString();
+            const div = document.getElementById('messages');
+            div.innerHTML += `<div class="msg ${type}"><span class="time">[${now}]</span>${message}</div>`;
+            div.scrollTop = div.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const badge = document.getElementById('statusBadge');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (connected) {
+                badge.className = 'status connected';
+                badge.textContent = '已连接';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                sendBtn.disabled = false;
+            } else {
+                badge.className = 'status disconnected';
+                badge.textContent = '未连接';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                sendBtn.disabled = true;
+            }
+        }
+
+        function connect() {
+            const wsUrl = document.getElementById('wsUrl').value;
+            const token = document.getElementById('token').value;
+            const deviceId = document.getElementById('deviceId').value;
+            const platform = document.getElementById('platform').value;
+
+            if (!token) {
+                log('error', '请输入 Token');
+                return;
+            }
+
+            let url = `${wsUrl}?token=${encodeURIComponent(token)}&platform=${platform}`;
+            if (deviceId) {
+                url += `&device_id=${encodeURIComponent(deviceId)}`;
+            }
+
+            log('system', `正在连接: ${url}`);
+
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = function() {
+                    log('system', 'WebSocket 连接成功!');
+                    updateStatus(true);
+                };
+
+                ws.onmessage = function(event) {
+                    msgCount++;
+                    try {
+                        const msg = JSON.parse(event.data);
+                        log('received', `[${msg.type}] ${JSON.stringify(msg.data)}`);
+                    } catch (e) {
+                        log('received', event.data);
+                    }
+                };
+
+                ws.onclose = function(event) {
+                    log('system', `连接关闭: code=${event.code}, reason=${event.reason}`);
+                    updateStatus(false);
+                    ws = null;
+                };
+
+                ws.onerror = function(error) {
+                    log('error', '连接错误: ' + error.message);
+                };
+            } catch (e) {
+                log('error', '连接失败: ' + e.message);
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                log('system', '已主动断开连接');
+            }
+        }
+
+        function sendMessage() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('error', '未连接到服务器');
+                return;
+            }
+
+            const msgType = document.getElementById('msgType').value;
+            const receiverId = parseInt(document.getElementById('receiverId').value) || 0;
+            const content = document.getElementById('content').value;
+
+            let message = {
+                type: msgType,
+                trace_id: 'trace_' + Date.now(),
+                data: {}
+            };
+
+            if (msgType === 'chat') {
+                message.data = {
+                    msg_id: 'msg_' + Date.now(),
+                    conversation_id: 'conv_' + Math.min(1, receiverId) + '_' + Math.max(1, receiverId),
+                    receiver_id: receiverId,
+                    msg_type: 1,
+                    content: content,
+                    timestamp: Date.now()
+                };
+            } else if (msgType === 'heartbeat') {
+                message.data = { timestamp: Date.now() };
+            } else if (msgType === 'typing') {
+                message.data = {
+                    conversation_id: 'conv_' + Math.min(1, receiverId) + '_' + Math.max(1, receiverId),
+                    is_typing: true
+                };
+            }
+
+            const json = JSON.stringify(message);
+            ws.send(json);
+            log('sent', `[${msgType}] ${json}`);
+        }
+
+        function sendHeartbeat() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('error', '未连接到服务器');
+                return;
+            }
+            const msg = { type: 'heartbeat', data: { timestamp: Date.now() } };
+            ws.send(JSON.stringify(msg));
+            log('sent', '[heartbeat] ' + JSON.stringify(msg));
+        }
+
+        function fetchStats() {
+            fetch('/api/v1/stats')
+                .then(r => r.json())
+                .then(data => log('received', '[stats] ' + JSON.stringify(data)))
+                .catch(e => log('error', '获取统计失败: ' + e.message));
+        }
+
+        function generateToken() {
+            const userId = prompt('输入用户ID (1=admin, 2=test1, 3=test2):', '1');
+            if (!userId) return;
+            
+            fetch(`/api/v1/test/token?user_id=${userId}&username=user_${userId}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.code === 0) {
+                        document.getElementById('token').value = data.data.token;
+                        log('system', `Token 已生成: user_id=${data.data.user_id}, username=${data.data.username}`);
+                        log('system', `Token: ${data.data.token.substring(0, 50)}...`);
+                    } else {
+                        log('error', '生成 Token 失败: ' + data.message);
+                    }
+                })
+                .catch(e => log('error', '请求失败: ' + e.message));
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+            log('system', '日志已清空');
+        }
+
+        // 页面加载完成后的提示
+        window.onload = function() {
+            log('system', 'GoChat WebSocket Demo 已就绪');
+            log('system', '步骤: 1.输入Token → 2.点击连接 → 3.发送消息');
+        };
+    </script>
+</body>
+</html>

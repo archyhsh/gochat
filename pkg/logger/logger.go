@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Logger 日志接口
 type Logger interface {
 	Debug(msg string, keysAndValues ...interface{})
 	Info(msg string, keysAndValues ...interface{})
@@ -18,14 +17,12 @@ type Logger interface {
 	With(keysAndValues ...interface{}) Logger
 }
 
-// zapLogger zap 日志实现
+// zapLogger fast and structured logger implementation using zap
 type zapLogger struct {
 	sugar *zap.SugaredLogger
 }
 
-// New 创建新的日志实例
 func New(level, format string) Logger {
-	// 解析日志级别
 	var zapLevel zapcore.Level
 	switch level {
 	case "debug":
@@ -40,7 +37,6 @@ func New(level, format string) Logger {
 		zapLevel = zapcore.InfoLevel
 	}
 
-	// 编码器配置
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -55,31 +51,23 @@ func New(level, format string) Logger {
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
-
-	// 选择编码器
 	var encoder zapcore.Encoder
 	if format == "json" {
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
 	} else {
 		encoder = zapcore.NewConsoleEncoder(encoderConfig)
 	}
-
-	// 创建 core
 	core := zapcore.NewCore(
 		encoder,
 		zapcore.AddSync(os.Stdout),
 		zapLevel,
 	)
-
-	// 创建 logger
 	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
-
 	return &zapLogger{
 		sugar: logger.Sugar(),
 	}
 }
 
-// customTimeEncoder 自定义时间编码器
 func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(t.Format("2006-01-02 15:04:05.000"))
 }

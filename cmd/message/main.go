@@ -3,69 +3,72 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"google.golang.org/grpc"
-
-	"github.com/yourusername/gochat/pkg/config"
-	"github.com/yourusername/gochat/pkg/logger"
-)
-
-var (
-	configFile = flag.String("config", "configs/message.yaml", "config file path")
-	version    = "1.0.0"
+	"github.com/archyhsh/gochat/internal/message/consumer"
+	"github.com/archyhsh/gochat/internal/message/service"
+	"github.com/archyhsh/gochat/pkg/config"
+	"github.com/archyhsh/gochat/pkg/db"
+	"github.com/archyhsh/gochat/pkg/kafka"
+	"github.com/archyhsh/gochat/pkg/logger"
 )
 
 func main() {
+	configPath := flag.String("config", "configs/message.yaml", "config file path")
 	flag.Parse()
 
-	// 初始化配置
-	cfg, err := config.Load(*configFile)
-	if err != nil {
-		fmt.Printf("Failed to load config: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 初始化日志
+	cfg := config.MustLoad(*configPath)
 	log := logger.New(cfg.Log.Level, cfg.Log.Format)
-	log.Info("Starting Message Service", "version", version)
-
-	// 创建 gRPC 服务器
-	grpcServer := grpc.NewServer()
-
-	// TODO: 注册消息服务
-	// pb.RegisterMessageServiceServer(grpcServer, messageService)
-
-	// 启动 gRPC 服务
-	lis, err := net.Listen("tcp", cfg.Server.GRPCAddr)
-	if err != nil {
-		log.Error("Failed to listen", "error", err)
-		os.Exit(1)
+	log.Info("Starting Message Service",
+		"name", cfg.Server.Name,
+	)
+	dbConfig := &db.Config{
+		Host:            cfg.MySQL.Host,
+		Port:            cfg.MySQL.Port,
+		User:            cfg.MySQL.User,
+		Password:        cfg.MySQL.Password,
+		Database:        cfg.MySQL.Database,
+		MaxOpenConns:    cfg.MySQL.MaxOpenConns,
+		MaxIdleConns:    cfg.MySQL.MaxIdleConns,
+		ConnMaxLifetime: cfg.MySQL.ConnMaxLifetime,
 	}
-
+	database, err := db.NewMySQL(dbConfig)
+	if err != nil {
+		log.Fatal("Failed to connect to MySQL", "error", err)
+	}
+	log.Info("Connected to MySQL")
+	msgService := service.NewMessageService(database, log)
+	msgConsumer := consumer.NewMessageConsumer(msgService, log)
+	topics := []string{cfg.Kafka.Topics.Message}
+	kafkaConsumer, err := kafka.NewConsumer(
+		cfg.Kafka.Brokers,
+		cfg.Kafka.ConsumerGroup,
+		topics,
+		msgConsumer,
+	)
+	if err != nil {
+		log.Fatal("Failed to create Kafka consumer", "error", err)
+	}
+	log.Info("Kafka consumer created",
+		"brokers", cfg.Kafka.Brokers,
+		"group", cfg.Kafka.ConsumerGroup,
+		"topics", topics,
+	)
+	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
-		log.Info("Message Service listening", "addr", cfg.Server.GRPCAddr)
-		if err := grpcServer.Serve(lis); err != nil {
-			log.Error("Failed to serve", "error", err)
-			os.Exit(1)
+		if err := kafkaConsumer.Start(ctx); err != nil {
+			log.Error("Kafka consumer error", "error", err)
 		}
 	}()
-
-	// 优雅关闭
+	log.Info("Message Service started, waiting for messages...")
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Info("Shutting down server...")
-
-	_, cancel := context.WithTimeout(context.Background(), 30)
-	defer cancel()
-
-	grpcServer.GracefulStop()
-
-	log.Info("Server exited")
+	log.Info("Shutting down Message Service...")
+	cancel()
+	kafkaConsumer.Close()
+	log.Info("Message Service stopped")
 }

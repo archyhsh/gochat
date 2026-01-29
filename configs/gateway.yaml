@@ -9,34 +9,34 @@ log:
   format: console
 
 mysql:
-  host: ${MYSQL_HOST:localhost}
+  host: "localhost"
   port: 3306
-  user: ${MYSQL_USER:gochat}
-  password: ${MYSQL_PASSWORD:gochat123}
-  database: ${MYSQL_DATABASE:gochat}
+  user: "gochat"
+  password: "gochat123"
+  database: "gochat"
   max_open_conns: 100
   max_idle_conns: 10
   conn_max_lifetime: 60
 
 redis:
-  addr: ${REDIS_ADDR:localhost:6379}
-  password: ${REDIS_PASSWORD:}
+  addr: "localhost:6379"
+  password: ""
   db: 0
   pool_size: 100
 
 kafka:
   brokers:
-    - ${KAFKA_BROKERS:localhost:9092}
+    - "localhost:9092"
   consumer_group: gateway-group
   topics:
     message: message-topic
     push: push-topic
 
 jwt:
-  secret: ${JWT_SECRET:your-super-secret-key-change-in-production}
+  secret: "your-super-secret-key-change-in-production"
   expire_time: 168  # 7 days in hours
 
 etcd:
   endpoints:
-    - ${ETCD_ENDPOINTS:localhost:2379}
+    - "localhost:2379"
   timeout: 5
