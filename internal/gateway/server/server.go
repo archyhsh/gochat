@@ -1,30 +1,38 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 
 	"github.com/archyhsh/gochat/internal/gateway/connection"
+	"github.com/archyhsh/gochat/internal/gateway/consumer"
 	"github.com/archyhsh/gochat/internal/gateway/handler"
+	"github.com/archyhsh/gochat/internal/gateway/service"
 	"github.com/archyhsh/gochat/pkg/auth"
 	"github.com/archyhsh/gochat/pkg/config"
+	"github.com/archyhsh/gochat/pkg/db"
 	"github.com/archyhsh/gochat/pkg/kafka"
 	"github.com/archyhsh/gochat/pkg/logger"
 	"github.com/archyhsh/gochat/pkg/response"
 )
 
 type Server struct {
-	config     *config.Config
-	logger     logger.Logger
-	manager    *connection.Manager
-	jwtManager *auth.JWTManager
-	producer   *kafka.Producer
-	upgrader   websocket.Upgrader
-	router     *mux.Router
+	config                 *config.Config
+	logger                 logger.Logger
+	db                     *gorm.DB
+	manager                *connection.Manager
+	jwtManager             *auth.JWTManager
+	producer               *kafka.Producer
+	relationChecker        *service.RelationChecker
+	relationConsumerCancel context.CancelFunc
+	upgrader               websocket.Upgrader
+	router                 *mux.Router
 }
 
 func New(cfg *config.Config, log logger.Logger) *Server {
@@ -43,7 +51,26 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 		},
 	}
 
-	// optional
+	dbConfig := &db.Config{
+		Host:            cfg.MySQL.Host,
+		Port:            cfg.MySQL.Port,
+		User:            cfg.MySQL.User,
+		Password:        cfg.MySQL.Password,
+		Database:        cfg.MySQL.Database,
+		MaxOpenConns:    cfg.MySQL.MaxOpenConns,
+		MaxIdleConns:    cfg.MySQL.MaxIdleConns,
+		ConnMaxLifetime: cfg.MySQL.ConnMaxLifetime,
+	}
+	database, err := db.NewMySQL(dbConfig)
+	if err != nil {
+		log.Warn("Failed to connect to MySQL, friend check will be disabled",
+			"error", err,
+		)
+	} else {
+		s.db = database
+		s.relationChecker = service.NewRelationChecker(database, log)
+		log.Info("MySQL connected for relation check")
+	}
 	producer, err := kafka.NewProducer(cfg.Kafka.Brokers, cfg.Kafka.Topics.Message)
 	if err != nil {
 		log.Warn("Failed to create Kafka producer, messages will not be persisted",
@@ -56,8 +83,31 @@ func New(cfg *config.Config, log logger.Logger) *Server {
 			"topic", cfg.Kafka.Topics.Message,
 		)
 	}
+	if len(cfg.Kafka.Brokers) > 0 && cfg.Kafka.Topics.Relation != "" {
+		relationConsumer := consumer.NewRelationEventConsumer(s.manager, log)
+		kafkaRelationConsumer, err := kafka.NewConsumer(
+			cfg.Kafka.Brokers,
+			"gateway-relation-consumer",
+			[]string{cfg.Kafka.Topics.Relation},
+			relationConsumer,
+		)
+		if err != nil {
+			log.Warn("Failed to create relation event consumer", "error", err)
+		} else {
+			// Start relation event consumer in background
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				if err := kafkaRelationConsumer.Start(ctx); err != nil {
+					log.Error("Relation event consumer error", "error", err)
+				}
+			}()
+			log.Info("Relation event consumer started", "topic", cfg.Kafka.Topics.Relation)
+			// Store cancel function for graceful shutdown
+			s.relationConsumerCancel = cancel
+		}
+	}
 
-	msgHandler := handler.NewMessageHandler(s.manager, s.producer, log)
+	msgHandler := handler.NewMessageHandler(s.manager, s.producer, s.relationChecker, log)
 	s.manager.SetMessageHandler(msgHandler)
 	s.manager.Start()
 	s.initRouter()
@@ -112,7 +162,6 @@ func (s *Server) wsHandler(w http.ResponseWriter, r *http.Request) {
 	s.manager.Register(c)
 	go c.WritePump()
 	go c.ReadPump()
-
 	s.logger.Info("New WebSocket connection",
 		"connID", connID,
 		"userID", claims.UserID,
@@ -130,6 +179,9 @@ func (s *Server) statsHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Shutdown() {
 	s.logger.Info("Shutting down gateway server...")
+	if s.relationConsumerCancel != nil {
+		s.relationConsumerCancel()
+	}
 	s.manager.Shutdown()
 	if s.producer != nil {
 		s.producer.Close()

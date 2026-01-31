@@ -24,6 +24,16 @@ type MessageRead struct {
 	ReadAt time.Time `gorm:"column:read_at;autoCreateTime" json:"read_at"`
 }
 
+type ConversationInfo struct {
+	ConversationID  string    `json:"conversation_id"`
+	PeerID          int64     `json:"peer_id"`
+	LastMessage     string    `json:"last_message"`
+	LastMsgType     int       `json:"last_msg_type"`
+	LastSenderID    int64     `json:"last_sender_id"`
+	LastMessageTime time.Time `json:"last_message_time"`
+	UnreadCount     int       `json:"unread_count"`
+}
+
 type KafkaChatMessage struct {
 	Type    string   `json:"type"`
 	Data    ChatData `json:"data"`

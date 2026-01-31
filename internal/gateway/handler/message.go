@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/archyhsh/gochat/internal/gateway/connection"
+	"github.com/archyhsh/gochat/internal/gateway/service"
 	"github.com/archyhsh/gochat/pkg/kafka"
 	"github.com/archyhsh/gochat/pkg/logger"
 )
@@ -73,16 +74,18 @@ type KafkaMessage struct {
 }
 
 type MessageHandler struct {
-	manager  *connection.Manager
-	producer *kafka.Producer
-	logger   logger.Logger
+	manager         *connection.Manager
+	producer        *kafka.Producer
+	relationChecker *service.RelationChecker
+	logger          logger.Logger
 }
 
-func NewMessageHandler(manager *connection.Manager, producer *kafka.Producer, log logger.Logger) *MessageHandler {
+func NewMessageHandler(manager *connection.Manager, producer *kafka.Producer, relationChecker *service.RelationChecker, log logger.Logger) *MessageHandler {
 	return &MessageHandler{
-		manager:  manager,
-		producer: producer,
-		logger:   log,
+		manager:         manager,
+		producer:        producer,
+		relationChecker: relationChecker,
+		logger:          log,
 	}
 }
 
@@ -122,36 +125,63 @@ func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMes
 	}
 	chatMsg.SenderID = conn.UserID
 	chatMsg.Timestamp = time.Now().UnixMilli()
-
-	if h.producer != nil {
-		kafkaMsg := KafkaMessage{
-			Type:    string(TypeChat),
-			Data:    chatMsg,
-			TraceID: msg.TraceID,
-		}
-		data, _ := json.Marshal(kafkaMsg)
-		if err := h.producer.Send([]byte(chatMsg.MsgID), data); err != nil {
-			h.logger.Error("Failed to send message to Kafka",
-				"msgID", chatMsg.MsgID,
-				"error", err,
-			)
-		} else {
-			h.logger.Debug("Message sent to Kafka",
-				"msgID", chatMsg.MsgID,
-				"conversationID", chatMsg.ConversationID,
-			)
-		}
-	}
-
-	// private chat: A to B
+	// one-to-one chat
 	if chatMsg.ReceiverID > 0 {
+		if h.relationChecker != nil {
+			if !h.relationChecker.IsFriend(chatMsg.SenderID, chatMsg.ReceiverID) {
+				h.sendError(conn, 403, "not friends with this user")
+				return nil
+			}
+			senderBlocked, receiverBlocked := h.relationChecker.GetBlockStatus(chatMsg.SenderID, chatMsg.ReceiverID)
+			if senderBlocked || receiverBlocked {
+				h.logger.Info("Message blocked due to block status (local only)",
+					"senderID", chatMsg.SenderID,
+					"receiverID", chatMsg.ReceiverID,
+					"senderBlocked", senderBlocked,
+					"receiverBlocked", receiverBlocked,
+				)
+				h.sendAck(conn, chatMsg.MsgID, 1, msg.TraceID)
+				return nil
+			}
+		}
+		if h.producer != nil {
+			kafkaMsg := KafkaMessage{
+				Type:    string(TypeChat),
+				Data:    chatMsg,
+				TraceID: msg.TraceID,
+			}
+			data, _ := json.Marshal(kafkaMsg)
+			if err := h.producer.Send([]byte(chatMsg.MsgID), data); err != nil {
+				h.logger.Error("Failed to send message to Kafka",
+					"msgID", chatMsg.MsgID,
+					"error", err,
+				)
+			} else {
+				h.logger.Debug("Message sent to Kafka",
+					"msgID", chatMsg.MsgID,
+					"conversationID", chatMsg.ConversationID,
+				)
+			}
+		}		
 		outMsg := OutgoingMessage{
 			Type:    TypeChat,
 			Data:    chatMsg,
 			TraceID: msg.TraceID,
 		}
 		data, _ := json.Marshal(outMsg)
-		h.manager.SendToUser(chatMsg.ReceiverID, data)
+		h.logger.Info("Forwarding message to receiver",
+			"senderID", chatMsg.SenderID,
+			"receiverID", chatMsg.ReceiverID,
+			"msgID", chatMsg.MsgID,
+			"isReceiverOnline", h.manager.IsUserOnline(chatMsg.ReceiverID),
+		)
+
+		if err := h.manager.SendToUser(chatMsg.ReceiverID, data); err != nil {
+			h.logger.Warn("Failed to forward message",
+				"receiverID", chatMsg.ReceiverID,
+				"error", err,
+			)
+		}
 		h.sendAck(conn, chatMsg.MsgID, 1, msg.TraceID)
 	}
 
