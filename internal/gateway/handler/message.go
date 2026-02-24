@@ -187,7 +187,6 @@ func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMes
 		h.sendAck(conn, chatMsg.MsgID, 1, msg.TraceID)
 	}
 
-	// Group chat message
 	if chatMsg.GroupID > 0 {
 		if h.relationChecker != nil {
 			if !h.relationChecker.IsGroupMember(chatMsg.SenderID, chatMsg.GroupID) {
@@ -238,8 +237,6 @@ func (h *MessageHandler) handleAck(conn *connection.Connection, msg IncomingMess
 	if err := json.Unmarshal(msg.Data, &ackMsg); err != nil {
 		return err
 	}
-
-	// Send to Kafka for status update in DB
 	if h.producer != nil {
 		kafkaMsg := KafkaMessage{
 			Type:    string(TypeAck),

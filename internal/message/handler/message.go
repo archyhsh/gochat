@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -47,8 +48,19 @@ func (h *MessageHandler) GetMessages(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO: 验证用户是否有权限访问该会话
+	allowed, err := h.messageService.CheckPermission(userID.(int64), conversationID)
+	if err != nil {
+		h.logger.Error("Permission check error", "userID", userID, "conversationID", conversationID, "error", err)
+		response.ServerError(w, "failed to check permission")
+		return
+	}
+	if !allowed {
+		h.logger.Warn("Permission denied", "userID", userID, "conversationID", conversationID)
+		response.Forbidden(w, "permission denied")
+		return
+	}
 
+	h.logger.Debug("Loading messages", "conversationID", conversationID, "limit", limit, "offset", offset)
 	messages, err := h.messageService.GetConversationMessages(conversationID, limit, offset)
 	if err != nil {
 		h.logger.Error("Failed to get messages",
@@ -87,6 +99,30 @@ func (h *MessageHandler) GetConversations(w http.ResponseWriter, r *http.Request
 		return
 	}
 	response.Success(w, conversations)
+}
+
+func (h *MessageHandler) ClearUnread(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		response.Unauthorized(w, "unauthorized")
+		return
+	}
+
+	var req struct {
+		ConversationID string `json:"conversation_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request")
+		return
+	}
+
+	if err := h.messageService.ClearUnread(userID.(int64), req.ConversationID); err != nil {
+		h.logger.Error("Failed to clear unread", "error", err)
+		response.ServerError(w, "failed to clear unread")
+		return
+	}
+
+	response.Success(w, nil)
 }
 
 func (h *MessageHandler) GetMessageByID(w http.ResponseWriter, r *http.Request) {

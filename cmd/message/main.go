@@ -79,6 +79,7 @@ func main() {
 	api.HandleFunc("/messages", msgHandler.GetMessages).Methods("GET")
 	api.HandleFunc("/messages/{msg_id}", msgHandler.GetMessageByID).Methods("GET")
 	api.HandleFunc("/conversations", msgHandler.GetConversations).Methods("GET")
+	api.HandleFunc("/conversations/read", msgHandler.ClearUnread).Methods("PUT")
 	corsHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")

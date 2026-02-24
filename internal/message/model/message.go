@@ -11,9 +11,9 @@ type Message struct {
 	SenderID       int64     `gorm:"column:sender_id;index" json:"sender_id"`
 	ReceiverID     int64     `gorm:"column:receiver_id" json:"receiver_id"`
 	GroupID        int64     `gorm:"column:group_id" json:"group_id"`
-	MsgType        int       `gorm:"column:msg_type" json:"msg_type"` // 1文本 2图片 3文件 4语音 5视频 6系统
+	MsgType        int       `gorm:"column:msg_type" json:"msg_type"`
 	Content        string    `gorm:"column:content;type:text" json:"content"`
-	Status         int       `gorm:"column:status;default:0" json:"status"` // 0正常 1撤回
+	Status         int       `gorm:"column:status;default:0" json:"status"`
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 
@@ -27,6 +27,7 @@ type MessageRead struct {
 type ConversationInfo struct {
 	ConversationID  string    `json:"conversation_id"`
 	PeerID          int64     `json:"peer_id"`
+	LastMsgID       string    `json:"-"`
 	LastMessage     string    `json:"last_message"`
 	LastMsgType     int       `json:"last_msg_type"`
 	LastSenderID    int64     `json:"last_sender_id"`

@@ -70,10 +70,12 @@ CREATE TABLE IF NOT EXISTS `group` (
   `owner_id` BIGINT NOT NULL COMMENT '群主ID',
   `max_members` INT DEFAULT 500 COMMENT '最大成员数',
   `member_count` INT DEFAULT 1 COMMENT '当前成员数',
+  `announcement` VARCHAR(1000) DEFAULT '' COMMENT '群公告',
   `status` TINYINT DEFAULT 1 COMMENT '状态: 0解散 1正常',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
   KEY `idx_owner_id` (`owner_id`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群组表';
@@ -87,14 +89,31 @@ CREATE TABLE IF NOT EXISTS `group_member` (
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
   `role` TINYINT DEFAULT 0 COMMENT '角色: 0成员 1管理员 2群主',
   `nickname` VARCHAR(50) DEFAULT '' COMMENT '群内昵称',
-  `muted_until` TIMESTAMP NULL COMMENT '禁言截止时间',
+  `muted_until` TIMESTAMP NULL DEFAULT NULL COMMENT '禁言截止时间',
   `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_group_user` (`group_id`, `user_id`),
   KEY `idx_group_id` (`group_id`),
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群成员表';
+
+-- ----------------------------
+-- 群申请表
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `group_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `group_id` BIGINT NOT NULL COMMENT '群ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `message` VARCHAR(255) DEFAULT '' COMMENT '申请消息',
+  `status` TINYINT DEFAULT 0 COMMENT '状态: 0待处理 1已同意 2已拒绝',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_group_id` (`group_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群申请表';
 
 -- ----------------------------
 -- 会话表

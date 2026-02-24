@@ -45,16 +45,16 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	group, err := h.groupService.CreateGroup(userID.(int64), &req)
 	if err != nil {
+		if errors.Is(err, service.ErrGroupAlreadyExists) {
+			response.BadRequest(w, "group name already exists")
+			return
+		}
 		h.logger.Error("CreateGroup failed", "error", err)
 		response.ServerError(w, "failed to create group")
 		return
 	}
 
-	response.Success(w, map[string]interface{}{
-		"group_id": group.ID,
-		"name":     group.Name,
-		"avatar":   group.Avatar,
-	})
+	response.Success(w, group)
 }
 
 func (h *GroupHandler) GetGroupList(w http.ResponseWriter, r *http.Request) {
@@ -358,4 +358,61 @@ func (h *GroupHandler) GetAnnouncement(w http.ResponseWriter, r *http.Request) {
 		"group_id":     group.ID,
 		"announcement": group.Announcement,
 	})
+}
+
+func (h *GroupHandler) SearchGroups(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		response.Unauthorized(w, "unauthorized")
+		return
+	}
+
+	keyword := r.URL.Query().Get("keyword")
+	if keyword == "" {
+		response.BadRequest(w, "keyword is required")
+		return
+	}
+
+	groups, err := h.groupService.SearchGroups(keyword, userID.(int64))
+	if err != nil {
+		h.logger.Error("SearchGroups failed", "error", err)
+		response.ServerError(w, "failed to search groups")
+		return
+	}
+
+	response.Success(w, groups)
+}
+
+func (h *GroupHandler) InviteMembers(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id")
+	if userID == nil {
+		response.Unauthorized(w, "unauthorized")
+		return
+	}
+
+	vars := mux.Vars(r)
+	groupID, _ := strconv.ParseInt(vars["id"], 10, 64)
+
+	var req struct {
+		MemberIDs []int64 `json:"member_ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if err := h.groupService.InviteMembers(groupID, userID.(int64), req.MemberIDs); err != nil {
+		switch {
+		case errors.Is(err, service.ErrGroupNotFound):
+			response.NotFound(w, "group not found")
+		case errors.Is(err, service.ErrNotGroupMember):
+			response.Forbidden(w, "only members can invite others")
+		default:
+			h.logger.Error("InviteMembers failed", "error", err)
+			response.ServerError(w, "failed to invite members")
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "members invited successfully"})
 }

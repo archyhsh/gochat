@@ -117,6 +117,9 @@
 
         /* 聊天菜单 */
         .menu-item:hover { background: #40444b; }
+
+        .search-tab { flex:1; text-align:center; font-size:12px; color:#8e9297; padding:4px; cursor:pointer; border-radius:4px; background:#202225; }
+        .search-tab.active { color:#fff; background:#5865f2; }
     </style>
 </head>
 <body>
@@ -159,19 +162,23 @@
     <div class="chat-container hidden" id="chatPage">
         <!-- 左侧边栏 -->
         <div class="sidebar">
-            <div class="sidebar-header">
+            <div class="sidebar-header" onclick="showSettings()" style="cursor:pointer;" title="点击设置个人资料">
                 <div class="avatar" id="myAvatar">U</div>
                 <div class="user-info">
                     <div class="name" id="myName">用户名</div>
                     <div class="status" id="myStatus">离线</div>
                 </div>
-                <button class="logout-btn" onclick="logout()" title="退出登录">退出</button>
+                <button class="logout-btn" onclick="event.stopPropagation(); logout()" title="退出登录">退出</button>
             </div>
             
             <div class="connection-status disconnected" id="connectionStatus">未连接</div>
             
             <div class="sidebar-search">
-                <input type="text" id="searchInput" placeholder="搜索用户..." onkeyup="handleSearch(event)">
+                <div style="display:flex;gap:5px;margin-bottom:8px;">
+                    <div id="searchTypeUser" class="search-tab active" onclick="setSearchType('user')">找人</div>
+                    <div id="searchTypeGroup" class="search-tab" onclick="setSearchType('group')">找群</div>
+                </div>
+                <input type="text" id="searchInput" placeholder="搜索..." onkeyup="handleSearch(event)">
                 <div class="search-results hidden" id="searchResults"></div>
             </div>
             
@@ -218,8 +225,18 @@
                     <div style="position:relative;">
                         <button onclick="toggleChatMenu()" style="background:none;border:none;color:#fff;cursor:pointer;padding:8px;font-size:20px;">⋮</button>
                         <div id="chatMenu" class="hidden" style="position:absolute;right:0;top:100%;background:#36393f;border:1px solid #202225;border-radius:6px;min-width:150px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-                            <div id="blockMenuBtn" class="menu-item" onclick="blockCurrentChat()" style="padding:10px 15px;cursor:pointer;color:#faa81a;">拉黑用户</div>
-                            <div id="unblockMenuBtn" class="menu-item hidden" onclick="unblockCurrentChat()" style="padding:10px 15px;cursor:pointer;color:#3ba55d;">取消拉黑</div>
+                            <!-- 私聊菜单项 -->
+                            <div id="privateChatMenu" class="hidden">
+                                <div id="blockMenuBtn" class="menu-item" onclick="blockCurrentChat()" style="padding:10px 15px;cursor:pointer;color:#faa81a;">拉黑用户</div>
+                                <div id="unblockMenuBtn" class="menu-item hidden" onclick="unblockCurrentChat()" style="padding:10px 15px;cursor:pointer;color:#3ba55d;">取消拉黑</div>
+                            </div>
+                            <!-- 群聊菜单项 -->
+                            <div id="groupChatMenu" class="hidden">
+                                <div class="menu-item" onclick="showGroupInfo()" style="padding:10px 15px;cursor:pointer;color:#fff;">群组信息</div>
+                                <div class="menu-item" onclick="showInviteMembers()" style="padding:10px 15px;cursor:pointer;color:#3ba55d;">邀请成员</div>
+                                <div id="dismissGroupBtn" class="menu-item hidden" onclick="dismissGroup()" style="padding:10px 15px;cursor:pointer;color:#ed4245;">解散群组</div>
+                                <div id="quitGroupBtn" class="menu-item" onclick="quitGroup()" style="padding:10px 15px;cursor:pointer;color:#ed4245;">退出群组</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -408,17 +425,40 @@
             console.log('Received message:', msg); // 调试日志
             if (msg.type === 'chat') {
                 const chatData = msg.data;
-                console.log('Chat message from', chatData.sender_id, 'content:', chatData.content);
+                const isFromMe = Number(chatData.sender_id) === Number(currentUser.user_id);
                 
-                // 刷新会话列表
-                loadConversations();
-                
-                // 如果当前正在和发送者聊天，显示消息
-                if (currentChat && chatData.sender_id === currentChat.peerId) {
-                    appendMessage(chatData);
+                // 更新侧边栏预览（针对所有情况）
+                const convIdx = conversations.findIndex(c => c.conversation_id === chatData.conversation_id);
+                if (convIdx > -1) {
+                    const conv = conversations[convIdx];
+                    conv.last_message = chatData.content;
+                    conv.last_message_time = new Date().toISOString();
+                    
+                    // 如果不是我发的，且不在当前聊天窗口，增加未读数
+                    const isCurrentChat = currentChat && (
+                        (!chatData.group_id && Number(chatData.sender_id) === Number(currentChat.peerId)) || 
+                        (chatData.group_id && Number(chatData.group_id) === Number(currentChat.groupId))
+                    );
+
+                    if (!isFromMe && !isCurrentChat) {
+                        conv.unread_count = (conv.unread_count || 0) + 1;
+                    } else if (!isFromMe && isCurrentChat) {
+                        // 如果是别人发的，且就在当前窗口，直接显示消息
+                        appendMessage(chatData);
+                    }
+                    
+                    // 置顶逻辑：移出当前位置并插入到头部
+                    conversations.splice(convIdx, 1);
+                    conversations.unshift(conv);
+                    
+                    renderChatList();
                 } else {
-                    // 收到新消息但不在当前聊天窗口，可以显示提示
-                    console.log('New message from user', chatData.sender_id, '(not in current chat)');
+                    // 新会话，重新拉取列表以确保排序正确
+                    loadConversations();
+                    // 如果是别人发起的新私聊且就在当前激活状态（例如点击搜索结果开始聊）
+                    if (!isFromMe && currentChat && !chatData.group_id && Number(chatData.sender_id) === Number(currentChat.peerId)) {
+                        appendMessage(chatData);
+                    }
                 }
             } else if (msg.type === 'relation_changed') {
                 // 处理关系变更事件（拉黑/取消拉黑等）
@@ -559,17 +599,40 @@
 
         // ==================== 搜索 ====================
         let searchTimeout = null;
+        let searchType = 'user';
+
+        function setSearchType(type) {
+            searchType = type;
+            document.getElementById('searchTypeUser').classList.toggle('active', type === 'user');
+            document.getElementById('searchTypeGroup').classList.toggle('active', type === 'group');
+            document.getElementById('searchInput').placeholder = type === 'user' ? '搜索用户...' : '搜索群组...';
+            const k = document.getElementById('searchInput').value.trim();
+            if (k) searchItems(k);
+        }
+
         function handleSearch(e) {
             const k = e.target.value.trim();
             clearTimeout(searchTimeout);
             if (!k) { document.getElementById('searchResults').classList.add('hidden'); return; }
-            searchTimeout = setTimeout(() => searchUsers(k), 300);
+            searchTimeout = setTimeout(() => searchItems(k), 300);
+        }
+
+        async function searchItems(k) {
+            if (searchType === 'user') searchUsers(k);
+            else searchGroupsAPI(k);
         }
 
         async function searchUsers(k) {
             try {
                 const data = await api(`${USER_API}/api/v1/users/search?keyword=${encodeURIComponent(k)}`);
                 if (data.code === 0) renderSearchResults((data.data || []).filter(u => u.id !== currentUser.user_id));
+            } catch (e) {}
+        }
+
+        async function searchGroupsAPI(k) {
+            try {
+                const data = await api(`${RELATION_API}/api/v1/groups/search?keyword=${encodeURIComponent(k)}`);
+                if (data.code === 0) renderGroupSearchResults(data.data || []);
             } catch (e) {}
         }
 
@@ -586,11 +649,23 @@
             c.classList.remove('hidden');
         }
 
-        async function sendFriendRequest(uid) {
+        function renderGroupSearchResults(groupsResult) {
+            const c = document.getElementById('searchResults');
+            c.innerHTML = groupsResult.length ? groupsResult.map(g => {
+                return `<div class="list-item">
+                    <div class="avatar" style="background:${getColor(g.id)}">G</div>
+                    <div class="info"><div class="name">${escapeHtml(g.name)}</div><div class="preview">${g.member_count} 成员</div></div>
+                    ${g.is_joined ? '<div style="color:#72767d;font-size:12px;">已加入</div>' : `<button style="background:#5865f2;color:white;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;" onclick="joinGroupRequest(${g.id})">加入</button>`}
+                </div>`;
+            }).join('') : '<div class="list-empty">未找到群组</div>';
+            c.classList.remove('hidden');
+        }
+
+        async function joinGroupRequest(gid) {
             try {
-                const data = await api(`${RELATION_API}/api/v1/friend/apply`, { method: 'POST', body: { to_user_id: uid, message: '请求添加好友' } });
-                if (data.code === 0) { alert('好友申请已发送'); document.getElementById('searchInput').value = ''; document.getElementById('searchResults').classList.add('hidden'); }
-                else alert(data.message || '发送失败');
+                const data = await api(`${RELATION_API}/api/v1/groups/${gid}/join`, { method: 'POST', body: { message: '请求加入' } });
+                if (data.code === 0) { alert('已成功加入群组'); document.getElementById('searchInput').value = ''; document.getElementById('searchResults').classList.add('hidden'); loadGroups(); }
+                else alert(data.message || '加入失败');
             } catch (e) { alert('网络错误'); }
         }
 
@@ -598,7 +673,12 @@
         async function loadConversations() {
             try {
                 const data = await api(`${MESSAGE_API}/api/v1/conversations?limit=20`);
-                if (data.code === 0) { conversations = data.data || []; renderChatList(); }
+                if (data.code === 0) {
+                    conversations = data.data || [];
+                    // 确保按时间排序
+                    conversations.sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
+                    renderChatList();
+                }
             } catch (e) { renderChatList(); }
         }
 
@@ -639,7 +719,10 @@
                             <div class="name">${escapeHtml(name)}${statusBadge}</div>
                             <div class="preview">${escapeHtml(cv.last_message || '')}</div>
                         </div>
-                        <div class="meta"><div class="time">${formatTime(cv.last_message_time)}</div></div>
+                        <div class="meta">
+                            <div class="time">${formatTime(cv.last_message_time)}</div>
+                            ${cv.unread_count > 0 ? `<div class="unread">${cv.unread_count > 99 ? '99+' : cv.unread_count}</div>` : ''}
+                        </div>
                     </div>`;
                 }).join('');
             } else {
@@ -656,7 +739,7 @@
             const iBlocked = friend && friend.status === 1;           // 我拉黑了对方
             const blockedByPeer = friend && friend.blocked_by_peer === 1; // 对方拉黑了我
             
-            currentChat = { id: convId, name, peerId, iBlocked, blockedByPeer };
+            currentChat = { id: convId, name, peerId, iBlocked, blockedByPeer, isGroup: false };
             messageOffset = 0;
             
             document.getElementById('noChatView').classList.add('hidden');
@@ -667,6 +750,10 @@
             document.getElementById('chatName').textContent = name;
             document.getElementById('chatMessages').innerHTML = '<div class="load-more" id="loadMoreBtn"><button onclick="loadMoreMessages()">加载更多消息</button></div>';
             
+            // 菜单切换
+            document.getElementById('privateChatMenu').classList.remove('hidden');
+            document.getElementById('groupChatMenu').classList.add('hidden');
+
             // 显示或隐藏拉黑警告
             const blockWarning = document.getElementById('blockWarning');
             const blockedByPeerWarning = document.getElementById('blockedByPeerWarning');
@@ -698,27 +785,92 @@
                 document.getElementById('unblockMenuBtn').classList.add('hidden');
             }
             
-            loadMessages();
+            loadMessages(true);
+
+            // 重置未读数
+            const conv = conversations.find(c => c.conversation_id === convId);
+            if (conv && conv.unread_count > 0) {
+                conv.unread_count = 0;
+                api(`${MESSAGE_API}/api/v1/conversations/read`, { method: 'PUT', body: { conversation_id: convId } });
+            }
+
             renderChatList();
         }
 
-        async function loadMessages() {
+        function startGroupChat(groupId, name) {
+            console.log('Starting group chat:', groupId, name);
+            const convId = `group_${groupId}`;
+            const group = groups.find(g => g.id === groupId) || {};
+            const displayName = group.name || name || `群组${groupId}`;
+            
+            currentChat = { 
+                id: convId, 
+                name: displayName, 
+                groupId: groupId, 
+                isGroup: true, 
+                ownerId: group.owner_id 
+            };
+            messageOffset = 0;
+            
+            document.getElementById('noChatView').classList.add('hidden');
+            document.getElementById('chatView').classList.remove('hidden');
+            document.getElementById('chatView').style.display = 'flex';
+            document.getElementById('chatAvatar').textContent = 'G';
+            document.getElementById('chatAvatar').style.background = getColor(groupId);
+            document.getElementById('chatName').textContent = displayName;
+            document.getElementById('chatMessages').innerHTML = '<div class="load-more" id="loadMoreBtn"><button onclick="loadMoreMessages()">加载更多消息</button></div>';
+            
+            // 菜单切换
+            document.getElementById('privateChatMenu').classList.add('hidden');
+            document.getElementById('groupChatMenu').classList.remove('hidden');
+            
+            // 群主可以解散，普通成员只能退出
+            const isOwner = group.owner_id === currentUser.user_id;
+            document.getElementById('dismissGroupBtn').classList.toggle('hidden', !isOwner);
+            document.getElementById('quitGroupBtn').classList.toggle('hidden', isOwner);
+
+            // Hide block warnings for groups
+            document.getElementById('blockWarning').classList.add('hidden');
+            document.getElementById('blockedByPeerWarning').classList.add('hidden');
+            
+            loadMessages(true);
+
+            // 重置未读数
+            const conv = conversations.find(c => c.conversation_id === convId);
+            if (conv && conv.unread_count > 0) {
+                conv.unread_count = 0;
+                api(`${MESSAGE_API}/api/v1/conversations/read`, { method: 'PUT', body: { conversation_id: convId } });
+            }
+
+            renderChatList();
+        }
+
+        async function loadMessages(isInitial = false) {
             if (!currentChat) return;
+            const container = document.getElementById('chatMessages');
+            const oldScrollHeight = container.scrollHeight;
+            
+            console.log('Loading messages for:', currentChat.id, 'offset:', messageOffset);
             try {
-                const data = await api(`${MESSAGE_API}/api/v1/messages?conversation_id=${currentChat.id}&limit=${MESSAGE_LIMIT}&offset=${messageOffset}`);
+                const url = `${MESSAGE_API}/api/v1/messages?conversation_id=${currentChat.id}&limit=${MESSAGE_LIMIT}&offset=${messageOffset}`;
+                console.log('Fetching:', url);
+                const data = await api(url);
                 if (data.code === 0) {
                     const msgs = data.data.messages || [];
+                    console.log('Received messages count:', msgs.length);
                     if (msgs.length < MESSAGE_LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
                     
-                    // Don't reverse here. If we use afterend on loadMoreBtn, 
-                    // we should insert them in chronological order if they come DESC,
-                    // but wait: API returns [Newest...Oldest].
-                    // To get Oldest at Top and Newest at Bottom of the chunk:
-                    // Insert M1(Newest) -> Btn M1
-                    // Insert M2(Older)  -> Btn M2 M1
-                    // Result: Older -> Newer. Perfect.
                     msgs.forEach(m => appendMessage(m, true));
                     messageOffset += msgs.length;
+
+                    if (isInitial) {
+                        scrollToBottom();
+                    } else {
+                        // Scroll anchoring: adjust scroll to keep position relative to the new content
+                        container.scrollTop = container.scrollHeight - oldScrollHeight;
+                    }
+                } else {
+                    console.error('API error loading messages:', data.message);
                 }
             } catch (e) {
                 console.error('Failed to load messages:', e);
@@ -726,25 +878,40 @@
             }
         }
 
-        function loadMoreMessages() { loadMessages(); }
+        function loadMoreMessages() { loadMessages(false); }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
 
         function appendMessage(msg, prepend = false) {
             const c = document.getElementById('chatMessages');
-            if (!c) return;
-            const isSelf = msg.sender_id === currentUser.user_id;
+            if (!c || !currentChat) return;
+            const isSelf = Number(msg.sender_id) === Number(currentUser.user_id);
             
             // In group chat, show sender name for others
             let senderDisplayName = isSelf ? '我' : (currentChat.isGroup ? `UID:${msg.sender_id}` : currentChat.name);
             
             // Try to find sender nickname in friends or group members if available
             if (!isSelf && currentChat.isGroup) {
-                const friend = friends.find(f => f.user_id === msg.sender_id);
+                const friend = friends.find(f => Number(f.user_id) === Number(msg.sender_id));
                 if (friend) senderDisplayName = friend.remark || friend.nickname;
             }
 
-            const html = `<div class="message-group"><div class="sender"><span class="name">${senderDisplayName}</span><span class="time">${formatTime(msg.created_at)}</span></div><div class="message-bubble ${isSelf ? 'self' : ''}">${escapeHtml(msg.content)}</div></div>`;
-            if (prepend) document.getElementById('loadMoreBtn').insertAdjacentHTML('afterend', html);
-            else { c.insertAdjacentHTML('beforeend', html); c.scrollTop = c.scrollHeight; }
+            const timeStr = msg.created_at || new Date().toISOString();
+            const html = `<div class="message-group"><div class="sender"><span class="name">${senderDisplayName}</span><span class="time">${formatTime(timeStr)}</span></div><div class="message-bubble ${isSelf ? 'self' : ''}">${escapeHtml(msg.content)}</div></div>`;
+            
+            if (prepend) {
+                document.getElementById('loadMoreBtn').insertAdjacentHTML('afterend', html);
+            } else {
+                // Check if user is near bottom before appending
+                const isNearBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 100;
+                c.insertAdjacentHTML('beforeend', html);
+                if (isSelf || isNearBottom) {
+                    setTimeout(scrollToBottom, 50); // Small delay to ensure DOM update
+                }
+            }
         }
 
         function handleMessageKeypress(e) { if (e.key === 'Enter') sendMessage(); }
@@ -776,7 +943,30 @@
                 data: msgData
             }));
             
-            appendMessage({ sender_id: currentUser.user_id, content, created_at: new Date().toISOString() });
+            // 本地立即回显
+            appendMessage({ 
+                sender_id: currentUser.user_id, 
+                content, 
+                created_at: new Date().toISOString() 
+            });
+
+            // 同时更新侧边栏预览并置顶
+            const convIdx = conversations.findIndex(c => c.conversation_id === currentChat.id);
+            if (convIdx > -1) {
+                const conv = conversations[convIdx];
+                conv.last_message = content;
+                conv.last_message_time = new Date().toISOString();
+                
+                // 置顶
+                conversations.splice(convIdx, 1);
+                conversations.unshift(conv);
+                
+                renderChatList();
+            } else {
+                // 如果侧边栏还没这个会话，刷新一下并排序
+                loadConversations();
+            }
+
             input.value = '';
         }
 
@@ -799,10 +989,15 @@
         // ==================== 群组 ====================
         async function loadGroups() {
             try {
+                console.log('Loading groups...');
                 const data = await api(`${RELATION_API}/api/v1/groups`);
+                console.log('Groups response:', data);
                 if (data.code === 0) {
                     groups = data.data || [];
+                    console.log('Loaded groups count:', groups.length);
                     renderGroupList();
+                } else {
+                    console.error('API error loading groups:', data.message);
                 }
             } catch (e) { console.error('Failed to load groups', e); }
         }
@@ -823,51 +1018,180 @@
 
         function showCreateGroupModal() {
             document.getElementById('createGroupModal').classList.remove('hidden');
+            const container = document.getElementById('friendSelectContainer');
+            if (!friends.length) {
+                container.innerHTML = '<div style="color:#72767d;font-size:12px;text-align:center;padding:10px;">暂无好友可邀请</div>';
+                return;
+            }
+            container.innerHTML = friends.map(f => `
+                <label style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;border-radius:4px;" class="menu-item">
+                    <input type="checkbox" name="friendInvite" value="${f.user_id}">
+                    <div class="avatar" style="width:24px;height:24px;font-size:10px;background:${getColor(f.user_id)}">${getInitial(f.nickname)}</div>
+                    <div style="color:#fff;font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(f.remark || f.nickname)}</div>
+                </label>
+            `).join('');
         }
 
         function closeCreateGroupModal() {
             document.getElementById('createGroupModal').classList.add('hidden');
+            document.getElementById('newGroupName').value = '';
+            document.getElementById('newGroupDesc').value = '';
+            hideCreateGroupError();
+        }
+
+        function hideCreateGroupError() {
+            const errorEl = document.getElementById('createGroupNameError');
+            errorEl.classList.add('hidden');
+            errorEl.textContent = '';
         }
 
         async function createGroup() {
             const name = document.getElementById('newGroupName').value.trim();
             const desc = document.getElementById('newGroupDesc').value.trim();
-            if (!name) { alert('请输入群组名称'); return; }
+            if (!name) { 
+                const errorEl = document.getElementById('createGroupNameError');
+                errorEl.textContent = '请输入群组名称';
+                errorEl.classList.remove('hidden');
+                return; 
+            }
             
+            // 获取选中的好友ID
+            const checkboxes = document.querySelectorAll('input[name="friendInvite"]:checked');
+            const memberIDs = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
             try {
                 const data = await api(`${RELATION_API}/api/v1/groups`, {
                     method: 'POST',
-                    body: { name, description: desc, member_ids: [] }
+                    body: { name, description: desc, member_ids: memberIDs }
                 });
                 if (data.code === 0) {
                     closeCreateGroupModal();
-                    loadGroups();
-                    startGroupChat(data.data.group_id, name);
+                    // Add the new group to local array and re-render
+                    groups.unshift(data.data);
+                    renderGroupList();
+                    startGroupChat(data.data.id, data.data.name);
                 } else {
-                    alert(data.message || '创建群组失败');
+                    const errorEl = document.getElementById('createGroupNameError');
+                    errorEl.textContent = data.message || '创建群组失败';
+                    errorEl.classList.remove('hidden');
+                }
+            } catch (e) { 
+                const errorEl = document.getElementById('createGroupNameError');
+                errorEl.textContent = '网络错误';
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        async function showGroupInfo() {
+            if (!currentChat || !currentChat.groupId) return;
+            document.getElementById('chatMenu').classList.add('hidden');
+            
+            try {
+                // 获取群组详情和成员
+                const data = await api(`${RELATION_API}/api/v1/groups/${currentChat.groupId}`);
+                const memberData = await api(`${RELATION_API}/api/v1/groups/${currentChat.groupId}/members`);
+                
+                if (data.code === 0 && memberData.code === 0) {
+                    const group = data.data;
+                    const members = memberData.data;
+                    
+                    document.getElementById('infoGroupName').textContent = group.name;
+                    document.getElementById('infoGroupDesc').textContent = group.description || '暂无描述';
+                    document.getElementById('infoMemberCount').textContent = members.length;
+                    
+                    document.getElementById('infoMemberContainer').innerHTML = members.map(m => `
+                        <div style="text-align:center;">
+                            <div class="avatar" style="width:40px;height:40px;margin:0 auto 5px;background:${getColor(m.user_id)}">${getInitial(m.nickname)}</div>
+                            <div style="color:#fff;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(m.nickname)}</div>
+                            ${m.role === 2 ? '<div style="color:#faa81a;font-size:9px;">群主</div>' : m.role === 1 ? '<div style="color:#3ba55d;font-size:9px;">管理</div>' : ''}
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('groupInfoModal').classList.remove('hidden');
+                }
+            } catch (e) { alert('获取群组信息失败'); }
+        }
+
+        async function showInviteMembers() {
+            if (!currentChat || !currentChat.groupId) return;
+            document.getElementById('chatMenu').classList.add('hidden');
+            
+            try {
+                const memberData = await api(`${RELATION_API}/api/v1/groups/${currentChat.groupId}/members`);
+                if (memberData.code === 0) {
+                    const currentMemberIDs = memberData.data.map(m => m.user_id);
+                    // 过滤出还没入群的好友
+                    const inviteable = friends.filter(f => !currentMemberIDs.includes(f.user_id));
+                    
+                    const container = document.getElementById('inviteFriendContainer');
+                    if (!inviteable.length) {
+                        container.innerHTML = '<div style="color:#72767d;font-size:12px;text-align:center;padding:10px;">所有好友已在群中</div>';
+                    } else {
+                        container.innerHTML = inviteable.map(f => `
+                            <label style="display:flex;align-items:center;gap:10px;padding:8px;cursor:pointer;border-radius:4px;" class="menu-item">
+                                <input type="checkbox" name="inviteMember" value="${f.user_id}">
+                                <div class="avatar" style="width:24px;height:24px;font-size:10px;background:${getColor(f.user_id)}">${getInitial(f.nickname)}</div>
+                                <div style="color:#fff;font-size:13px;">${escapeHtml(f.remark || f.nickname)}</div>
+                            </label>
+                        `).join('');
+                    }
+                    document.getElementById('inviteModal').classList.remove('hidden');
+                }
+            } catch (e) { alert('获取群成员失败'); }
+        }
+
+        async function inviteMembers() {
+            const checkboxes = document.querySelectorAll('input[name="inviteMember"]:checked');
+            const memberIDs = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            if (!memberIDs.length) { document.getElementById('inviteModal').classList.add('hidden'); return; }
+            
+            try {
+                const data = await api(`${RELATION_API}/api/v1/groups/${currentChat.groupId}/invite`, {
+                    method: 'POST',
+                    body: { member_ids: memberIDs }
+                });
+                if (data.code === 0) {
+                    alert('邀请成功');
+                    document.getElementById('inviteModal').classList.add('hidden');
+                    loadConversations(); // 刷新会话信息
+                } else {
+                    alert(data.message || '邀请失败');
                 }
             } catch (e) { alert('网络错误'); }
         }
 
-        function startGroupChat(groupId, name) {
-            const convId = `group_${groupId}`;
-            currentChat = { id: convId, name, groupId, isGroup: true };
-            messageOffset = 0;
-            
-            document.getElementById('noChatView').classList.add('hidden');
-            document.getElementById('chatView').classList.remove('hidden');
-            document.getElementById('chatView').style.display = 'flex';
-            document.getElementById('chatAvatar').textContent = 'G';
-            document.getElementById('chatAvatar').style.background = getColor(groupId);
-            document.getElementById('chatName').textContent = name;
-            document.getElementById('chatMessages').innerHTML = '<div class="load-more" id="loadMoreBtn"><button onclick="loadMoreMessages()">加载更多消息</button></div>';
-            
-            // Hide block warnings for groups
-            document.getElementById('blockWarning').classList.add('hidden');
-            document.getElementById('blockedByPeerWarning').classList.add('hidden');
-            
-            loadMessages();
-            renderChatList();
+        async function quitGroup() {
+            if (!confirm('确定要退出该群组吗？')) return;
+            try {
+                const data = await api(`${RELATION_API}/api/v1/groups/${currentChat.groupId}/quit`, { method: 'POST' });
+                if (data.code === 0) {
+                    alert('已退出群组');
+                    document.getElementById('chatMenu').classList.add('hidden');
+                    document.getElementById('noChatView').classList.remove('hidden');
+                    document.getElementById('chatView').classList.add('hidden');
+                    loadGroups();
+                    loadConversations();
+                } else {
+                    alert(data.message || '退出失败');
+                }
+            } catch (e) { alert('网络错误'); }
+        }
+
+        async function dismissGroup() {
+            if (!confirm('确定要解散该群组吗？此操作不可恢复！')) return;
+            try {
+                const data = await api(`${RELATION_API}/api/v1/groups/${currentChat.groupId}`, { method: 'DELETE' });
+                if (data.code === 0) {
+                    alert('群组已解散');
+                    document.getElementById('chatMenu').classList.add('hidden');
+                    document.getElementById('noChatView').classList.remove('hidden');
+                    document.getElementById('chatView').classList.add('hidden');
+                    loadGroups();
+                    loadConversations();
+                } else {
+                    alert(data.message || '解散失败');
+                }
+            } catch (e) { alert('网络错误'); }
         }
 
         // ==================== 聊天菜单 ====================
@@ -984,20 +1308,163 @@
                 console.log('Network error during session verification');
             }
         }
+
+        // ==================== 个人设置 ====================
+        async function showSettings() {
+            try {
+                const data = await api(`${USER_API}/api/v1/user/me`);
+                if (data.code === 0) {
+                    const u = data.data;
+                    document.getElementById('setNickname').value = u.nickname || '';
+                    document.getElementById('setAvatar').value = u.avatar || '';
+                    document.getElementById('setPhone').value = u.phone || '';
+                    document.getElementById('setEmail').value = u.email || '';
+                    document.getElementById('setGender').value = u.gender || '0';
+                    
+                    document.getElementById('settingsMessage').classList.add('hidden');
+                    document.getElementById('settingsModal').classList.remove('hidden');
+                }
+            } catch (e) { alert('获取个人资料失败'); }
+        }
+
+        async function updateProfile() {
+            const nickname = document.getElementById('setNickname').value.trim();
+            const avatar = document.getElementById('setAvatar').value.trim();
+            const phone = document.getElementById('setPhone').value.trim();
+            const email = document.getElementById('setEmail').value.trim();
+            const gender = parseInt(document.getElementById('setGender').value);
+
+            if (!nickname) { alert('昵称不能为空'); return; }
+
+            const btn = document.getElementById('saveSettingsBtn');
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+
+            try {
+                const data = await api(`${USER_API}/api/v1/user/me`, {
+                    method: 'PUT',
+                    body: { nickname, avatar, phone, email, gender }
+                });
+
+                if (data.code === 0) {
+                    // 更新本地状态
+                    currentUser.nickname = data.data.nickname;
+                    currentUser.avatar = data.data.avatar;
+                    saveSession();
+                    
+                    // 更新 UI
+                    document.getElementById('myName').textContent = currentUser.nickname;
+                    document.getElementById('myAvatar').textContent = getInitial(currentUser.nickname);
+                    document.getElementById('myAvatar').style.background = getColor(currentUser.user_id);
+                    
+                    const msgEl = document.getElementById('settingsMessage');
+                    msgEl.textContent = '保存成功';
+                    msgEl.classList.remove('hidden');
+                    
+                    setTimeout(() => {
+                        document.getElementById('settingsModal').classList.add('hidden');
+                    }, 1000);
+                } else {
+                    alert(data.message || '更新失败');
+                }
+            } catch (e) { alert('网络错误'); }
+            finally {
+                btn.disabled = false;
+                btn.textContent = '保存';
+            }
+        }
     </script>
     <!-- 创建群组弹窗 -->
     <div class="hidden" id="createGroupModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
-        <div style="background:#36393f;padding:25px;border-radius:12px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+        <div style="background:#36393f;padding:25px;border-radius:12px;width:500px;max-height:90vh;box-shadow:0 10px 40px rgba(0,0,0,0.4);display:flex;flex-direction:column;">
             <h3 style="color:#fff;margin-bottom:20px;text-align:center;">创建新群组</h3>
-            <div style="margin-bottom:15px;">
-                <input type="text" id="newGroupName" placeholder="群组名称" style="width:100%;padding:12px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+            <div style="display:flex;gap:20px;flex:1;overflow:hidden;">
+                <!-- 左侧信息 -->
+                <div style="flex:1;">
+                    <div style="margin-bottom:15px;">
+                        <input type="text" id="newGroupName" placeholder="群组名称" style="width:100%;padding:12px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;" oninput="hideCreateGroupError()">
+                        <div id="createGroupNameError" style="color: #ed4245; font-size: 12px; margin-top: 5px; min-height: 15px;" class="hidden"></div>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <textarea id="newGroupDesc" placeholder="群组描述 (可选)" style="width:100%;padding:12px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;height:150px;resize:none;"></textarea>
+                    </div>
+                </div>
+                <!-- 右侧好友选择 -->
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                    <div style="color:#8e9297;font-size:12px;margin-bottom:8px;">选择初始成员 (好友):</div>
+                    <div id="friendSelectContainer" style="flex:1;overflow-y:auto;background:#202225;border-radius:6px;padding:5px;">
+                        <!-- 好友列表填充在这里 -->
+                    </div>
+                </div>
             </div>
-            <div style="margin-bottom:15px;">
-                <textarea id="newGroupDesc" placeholder="群组描述 (可选)" style="width:100%;padding:12px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;height:80px;resize:none;"></textarea>
-            </div>
-            <div style="display:flex;gap:10px;">
+            <div style="display:flex;gap:10px;margin-top:20px;">
                 <button onclick="closeCreateGroupModal()" style="flex:1;padding:12px;background:#4f545c;color:#fff;border:none;border-radius:6px;cursor:pointer;">取消</button>
                 <button onclick="createGroup()" style="flex:1;padding:12px;background:#5865f2;color:#fff;border:none;border-radius:6px;cursor:pointer;">创建</button>
+            </div>
+        </div>
+    </div>
+    <!-- 邀请成员弹窗 -->
+    <div class="hidden" id="inviteModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
+        <div style="background:#36393f;padding:25px;border-radius:12px;width:380px;max-height:80vh;box-shadow:0 10px 40px rgba(0,0,0,0.4);display:flex;flex-direction:column;">
+            <h3 style="color:#fff;margin-bottom:20px;text-align:center;">邀请好友入群</h3>
+            <div id="inviteFriendContainer" style="flex:1;overflow-y:auto;background:#202225;border-radius:6px;padding:5px;margin-bottom:15px;">
+                <!-- 填充好友列表 -->
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="document.getElementById('inviteModal').classList.add('hidden')" style="flex:1;padding:12px;background:#4f545c;color:#fff;border:none;border-radius:6px;cursor:pointer;">取消</button>
+                <button onclick="inviteMembers()" style="flex:1;padding:12px;background:#5865f2;color:#fff;border:none;border-radius:6px;cursor:pointer;">邀请</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 群组信息弹窗 -->
+    <div class="hidden" id="groupInfoModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
+        <div style="background:#36393f;padding:25px;border-radius:12px;width:400px;max-height:80vh;box-shadow:0 10px 40px rgba(0,0,0,0.4);display:flex;flex-direction:column;">
+            <h3 id="infoGroupName" style="color:#fff;margin-bottom:10px;">群组信息</h3>
+            <div id="infoGroupDesc" style="color:#b9bbbe;font-size:14px;margin-bottom:20px;border-bottom:1px solid #4f545c;padding-bottom:10px;">描述</div>
+            
+            <div style="color:#8e9297;font-size:12px;margin-bottom:8px;">群成员 (<span id="infoMemberCount">0</span>):</div>
+            <div id="infoMemberContainer" style="flex:1;overflow-y:auto;background:#202225;border-radius:6px;padding:10px;display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;">
+                <!-- 填充成员 -->
+            </div>
+            
+            <div style="margin-top:20px;">
+                <button onclick="document.getElementById('groupInfoModal').classList.add('hidden')" style="width:100%;padding:12px;background:#4f545c;color:#fff;border:none;border-radius:6px;cursor:pointer;">关闭</button>
+            </div>
+        </div>
+    </div>
+    <!-- 个人设置弹窗 -->
+    <div class="hidden" id="settingsModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
+        <div style="background:#36393f;padding:25px;border-radius:12px;width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+            <h3 style="color:#fff;margin-bottom:20px;text-align:center;">个人资料设置</h3>
+            <div style="margin-bottom:15px;">
+                <label style="color:#8e9297;font-size:12px;display:block;margin-bottom:5px;">昵称</label>
+                <input type="text" id="setNickname" placeholder="设置昵称" style="width:100%;padding:10px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="color:#8e9297;font-size:12px;display:block;margin-bottom:5px;">头像 URL</label>
+                <input type="text" id="setAvatar" placeholder="头像图片链接" style="width:100%;padding:10px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="color:#8e9297;font-size:12px;display:block;margin-bottom:5px;">手机号</label>
+                <input type="text" id="setPhone" placeholder="手机号" style="width:100%;padding:10px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <label style="color:#8e9297;font-size:12px;display:block;margin-bottom:5px;">邮箱</label>
+                <input type="email" id="setEmail" placeholder="邮箱" style="width:100%;padding:10px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="color:#8e9297;font-size:12px;display:block;margin-bottom:5px;">性别</label>
+                <select id="setGender" style="width:100%;padding:10px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+                    <option value="0">未知</option>
+                    <option value="1">男</option>
+                    <option value="2">女</option>
+                </select>
+            </div>
+            <div id="settingsMessage" style="color: #3ba55d; font-size: 12px; margin-bottom: 15px; text-align: center;" class="hidden"></div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="document.getElementById('settingsModal').classList.add('hidden')" style="flex:1;padding:12px;background:#4f545c;color:#fff;border:none;border-radius:6px;cursor:pointer;">取消</button>
+                <button onclick="updateProfile()" id="saveSettingsBtn" style="flex:1;padding:12px;background:#5865f2;color:#fff;border:none;border-radius:6px;cursor:pointer;">保存</button>
             </div>
         </div>
     </div>

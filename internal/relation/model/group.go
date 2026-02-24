@@ -19,14 +19,14 @@ type Group struct {
 }
 
 type GroupMember struct {
-	ID         int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	GroupID    int64     `gorm:"column:group_id;not null;index" json:"group_id"`
-	UserID     int64     `gorm:"column:user_id;not null;index" json:"user_id"`
-	Role       int       `gorm:"column:role;default:0" json:"role"`
-	Nickname   string    `gorm:"column:nickname;type:varchar(50);default:''" json:"nickname"`
-	MutedUntil time.Time `gorm:"column:muted_until;null" json:"muted_until"`
-	JoinedAt   time.Time `gorm:"column:joined_at;autoCreateTime" json:"joined_at"`
-	CreatedAt  time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	ID         int64      `gorm:"primaryKey;autoIncrement" json:"id"`
+	GroupID    int64      `gorm:"column:group_id;not null;index" json:"group_id"`
+	UserID     int64      `gorm:"column:user_id;not null;index" json:"user_id"`
+	Role       int        `gorm:"column:role;default:0" json:"role"`
+	Nickname   string     `gorm:"column:nickname;type:varchar(50);default:''" json:"nickname"`
+	MutedUntil *time.Time `gorm:"column:muted_until;null" json:"muted_until"`
+	JoinedAt   time.Time  `gorm:"column:joined_at;autoCreateTime" json:"joined_at"`
+	CreatedAt  time.Time  `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 }
 
 type GroupRequest struct {
@@ -55,14 +55,14 @@ type GroupInfo struct {
 }
 
 type GroupMemberInfo struct {
-	UserID     int64     `json:"user_id"`
-	Username   string    `json:"username"`
-	Nickname   string    `json:"nickname"`
-	Avatar     string    `json:"avatar"`
-	Role       int       `json:"role"`
-	NicknameIn string    `json:"nickname_in"`
-	MutedUntil time.Time `json:"muted_until"`
-	JoinedAt   string    `json:"joined_at"`
+	UserID     int64      `json:"user_id"`
+	Username   string     `json:"username"`
+	Nickname   string     `json:"nickname"`
+	Avatar     string     `json:"avatar"`
+	Role       int        `json:"role"`
+	NicknameIn string     `json:"nickname_in"`
+	MutedUntil *time.Time `json:"muted_until"`
+	JoinedAt   string     `json:"joined_at"`
 }
 
 type GroupEvent struct {

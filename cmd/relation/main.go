@@ -89,6 +89,8 @@ func main() {
 	api.HandleFunc("/groups/{id:[0-9]+}", groupHandler.DismissGroup).Methods("DELETE")
 	api.HandleFunc("/groups/{id:[0-9]+}/announcement", groupHandler.UpdateAnnouncement).Methods("PUT")
 	api.HandleFunc("/groups/{id:[0-9]+}/announcement", groupHandler.GetAnnouncement).Methods("GET")
+	api.HandleFunc("/groups/search", groupHandler.SearchGroups).Methods("GET")
+	api.HandleFunc("/groups/{id:[0-9]+}/invite", groupHandler.InviteMembers).Methods("POST")
 
 	corsHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

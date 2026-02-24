@@ -64,59 +64,82 @@ func (s *GroupService) publishGroupEvent(event *model.GroupEvent) {
 	}
 }
 
-func (s *GroupService) CreateGroup(ownerID int64, req *model.CreateGroupRequest) (*model.Group, error) {
+func (s *GroupService) CreateGroup(ownerID int64, req *model.CreateGroupRequest) (*model.GroupInfo, error) {
 	if len(req.Name) == 0 || len(req.Name) > 100 {
 		return nil, errors.New("group name must be 1-100 characters")
 	}
-
-	group := &model.Group{
-		Name:        req.Name,
-		Avatar:      req.Avatar,
-		Description: req.Description,
-		OwnerID:     ownerID,
-		MaxMembers:  500,
-		MemberCount: 1,
-		Status:      model.GroupStatusNormal,
+	var count int64
+	s.db.Model(&model.Group{}).Where("name = ? AND status = ?", req.Name, model.GroupStatusNormal).Count(&count)
+	if count > 0 {
+		return nil, ErrGroupAlreadyExists
 	}
 
-	if err := s.db.Create(group).Error; err != nil {
-		s.logger.Error("Failed to create group", "error", err)
+	var group model.Group
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		group = model.Group{
+			Name:        req.Name,
+			Avatar:      req.Avatar,
+			Description: req.Description,
+			OwnerID:     ownerID,
+			MaxMembers:  500,
+			MemberCount: 1,
+			Status:      model.GroupStatusNormal,
+		}
+
+		if err := tx.Create(&group).Error; err != nil {
+			return err
+		}
+
+		ownerMember := &model.GroupMember{
+			GroupID:  group.ID,
+			UserID:   ownerID,
+			Role:     model.GroupRoleOwner,
+			Nickname: "",
+			JoinedAt: time.Now(),
+		}
+		if err := tx.Create(ownerMember).Error; err != nil {
+			return err
+		}
+
+		if len(req.MemberIDs) > 0 {
+			for _, memberID := range req.MemberIDs {
+				if memberID == ownerID {
+					continue
+				}
+				member := &model.GroupMember{
+					GroupID:  group.ID,
+					UserID:   memberID,
+					Role:     model.GroupRoleMember,
+					Nickname: "",
+					JoinedAt: time.Now(),
+				}
+				if err := tx.Create(member).Error; err != nil {
+					return err
+				}
+				if err := tx.Model(&group).Update("member_count", gorm.Expr("member_count + 1")).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Error("Failed to create group in transaction", "error", err)
 		return nil, errors.New("failed to create group")
 	}
 
-	ownerMember := &model.GroupMember{
-		GroupID:  group.ID,
-		UserID:   ownerID,
-		Role:     model.GroupRoleOwner,
-		Nickname: "",
-		JoinedAt: time.Now(),
-	}
-	if err := s.db.Create(ownerMember).Error; err != nil {
-		s.logger.Error("Failed to create group owner member", "error", err)
-	}
-
-	if len(req.MemberIDs) > 0 {
-		for _, memberID := range req.MemberIDs {
-			if memberID == ownerID {
-				continue
-			}
-			if err := s.JoinGroup(group.ID, memberID, ""); err != nil {
-				s.logger.Warn("Failed to add member to group", "groupID", group.ID, "userID", memberID, "error", err)
-			}
-		}
-	}
-
 	s.logger.Info("Group created", "groupID", group.ID, "ownerID", ownerID, "name", group.Name)
-	return group, nil
+	return s.GetGroupInfo(group.ID, ownerID)
 }
 
 func (s *GroupService) GetGroupList(userID int64) ([]model.GroupInfo, error) {
-	var groups []model.GroupInfo
+	groups := make([]model.GroupInfo, 0)
 	err := s.db.Table("group_member gm").
 		Select(`g.id, g.name, g.avatar, g.description, g.owner_id, g.max_members,
 				g.member_count, g.announcement, g.created_at,
 				1 as is_joined, gm.role as my_role`).
-		Joins("LEFT JOIN `group` g ON g.id = gm.group_id").
+		Joins("INNER JOIN `group` g ON g.id = gm.group_id").
 		Where("gm.user_id = ? AND g.status = ?", userID, model.GroupStatusNormal).
 		Order("g.created_at DESC").
 		Scan(&groups).Error
@@ -411,12 +434,65 @@ func (s *GroupService) GetUserRole(groupID, userID int64) int {
 	return member.Role
 }
 
+func (s *GroupService) SearchGroups(keyword string, userID int64) ([]model.GroupInfo, error) {
+	var groups []model.GroupInfo
+	err := s.db.Table("`group` g").
+		Select(`g.id, g.name, g.avatar, g.description, g.owner_id, g.max_members,
+				g.member_count, g.announcement, g.created_at`).
+		Where("g.status = ? AND (g.name LIKE ? OR g.description LIKE ?)",
+			model.GroupStatusNormal, "%"+keyword+"%", "%"+keyword+"%").
+		Limit(50).
+		Scan(&groups).Error
+
+	if err != nil {
+		s.logger.Error("Failed to search groups", "keyword", keyword, "error", err)
+		return nil, err
+	}
+
+	for i := range groups {
+		var count int64
+		s.db.Table("group_member").
+			Where("group_id = ? AND user_id = ?", groups[i].ID, userID).
+			Count(&count)
+		groups[i].IsJoined = count > 0
+
+		var ownerName string
+		s.db.Table("user").Select("nickname").Where("id = ?", groups[i].OwnerID).Scan(&ownerName)
+		groups[i].OwnerName = ownerName
+	}
+
+	return groups, nil
+}
+
+func (s *GroupService) InviteMembers(groupID, operatorID int64, memberIDs []int64) error {
+	var group model.Group
+	if err := s.db.First(&group, groupID).Error; err != nil {
+		return ErrGroupNotFound
+	}
+	if !s.IsGroupMember(groupID, operatorID) {
+		return ErrNotGroupMember
+	}
+
+	for _, memberID := range memberIDs {
+		if memberID == operatorID {
+			continue
+		}
+		if err := s.JoinGroup(groupID, memberID, ""); err != nil {
+			if !errors.Is(err, ErrGroupAlreadyJoined) {
+				s.logger.Warn("Failed to invite member to group", "groupID", groupID, "userID", memberID, "error", err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (s *GroupService) IsMuted(groupID, userID int64) bool {
 	var member model.GroupMember
 	if err := s.db.Where("group_id = ? AND user_id = ?", groupID, userID).First(&member).Error; err != nil {
 		return false
 	}
-	if member.MutedUntil.IsZero() {
+	if member.MutedUntil == nil {
 		return false
 	}
 	return member.MutedUntil.After(time.Now())
