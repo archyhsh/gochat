@@ -143,6 +143,7 @@ func (s *MessageService) GetUserConversations(userID int64, limit int) ([]model.
 			m.sender_id as last_sender_id,
 			m.created_at as last_message_time,
 			CASE 
+				WHEN m.group_id > 0 THEN m.group_id
 				WHEN m.sender_id = ? THEN m.receiver_id 
 				ELSE m.sender_id 
 			END as peer_id
@@ -150,13 +151,18 @@ func (s *MessageService) GetUserConversations(userID int64, limit int) ([]model.
 		INNER JOIN (
 			SELECT conversation_id, MAX(created_at) as max_time
 			FROM %s
-			WHERE sender_id = ? OR receiver_id = ?
+			WHERE sender_id = ? OR receiver_id = ? OR group_id IN (
+				-- Subquery to get groups user belongs to
+				SELECT group_id FROM group_member WHERE user_id = ?
+			)
 			GROUP BY conversation_id
 		) latest ON m.conversation_id = latest.conversation_id AND m.created_at = latest.max_time
 		ORDER BY m.created_at DESC
 		LIMIT ?
 	`, table, table)
-	result := s.db.Raw(sql, userID, userID, userID, limit).Scan(&conversations)
+
+	result := s.db.Raw(sql, userID, userID, userID, userID, limit).Scan(&conversations)
+
 	if result.Error != nil {
 		s.logger.Error("Failed to get user conversations",
 			"userID", userID,

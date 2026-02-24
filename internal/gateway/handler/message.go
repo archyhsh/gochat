@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/archyhsh/gochat/internal/gateway/connection"
@@ -46,7 +48,7 @@ type ChatMessage struct {
 	Timestamp      int64  `json:"timestamp"`
 }
 
-// status=1: 已发送, status=2: 已送达, status=3: 已读
+// status=1: sent, status=2: delivered, status=3: read
 type AckMessage struct {
 	MsgID  string `json:"msg_id"`
 	Status int    `json:"status"`
@@ -162,7 +164,7 @@ func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMes
 					"conversationID", chatMsg.ConversationID,
 				)
 			}
-		}		
+		}
 		outMsg := OutgoingMessage{
 			Type:    TypeChat,
 			Data:    chatMsg,
@@ -185,7 +187,48 @@ func (h *MessageHandler) handleChat(conn *connection.Connection, msg IncomingMes
 		h.sendAck(conn, chatMsg.MsgID, 1, msg.TraceID)
 	}
 
-	// TODO: 如果是群聊，发送给群内所有成员
+	// Group chat message
+	if chatMsg.GroupID > 0 {
+		if h.relationChecker != nil {
+			if !h.relationChecker.IsGroupMember(chatMsg.SenderID, chatMsg.GroupID) {
+				h.logger.Warn("User not in group", "userID", chatMsg.SenderID, "groupID", chatMsg.GroupID)
+				h.sendError(conn, 403, "not a member of this group")
+				return nil
+			}
+		}
+		if h.producer != nil {
+			kafkaMsg := KafkaMessage{
+				Type:    string(TypeChat),
+				Data:    chatMsg,
+				TraceID: msg.TraceID,
+			}
+			data, _ := json.Marshal(kafkaMsg)
+			h.producer.Send([]byte(chatMsg.MsgID), data)
+		}
+		if h.relationChecker != nil {
+			members, err := h.relationChecker.GetGroupMembers(chatMsg.GroupID)
+			if err != nil {
+				h.logger.Error("Failed to get group members", "groupID", chatMsg.GroupID, "error", err)
+			} else {
+				outMsg := OutgoingMessage{
+					Type:    TypeChat,
+					Data:    chatMsg,
+					TraceID: msg.TraceID,
+				}
+				data, _ := json.Marshal(outMsg)
+				for _, memberID := range members {
+					// Skip sender if you want (standard IM usually sends it back or relies on local echo)
+					// Here we send it to everyone to ensure consistency
+					if memberID == chatMsg.SenderID {
+						continue
+					}
+					h.manager.SendToUser(memberID, data)
+				}
+			}
+		}
+		h.sendAck(conn, chatMsg.MsgID, 1, msg.TraceID)
+		return nil
+	}
 
 	return nil
 }
@@ -196,7 +239,16 @@ func (h *MessageHandler) handleAck(conn *connection.Connection, msg IncomingMess
 		return err
 	}
 
-	// TODO: 更新消息状态
+	// Send to Kafka for status update in DB
+	if h.producer != nil {
+		kafkaMsg := KafkaMessage{
+			Type:    string(TypeAck),
+			Data:    ackMsg,
+			TraceID: msg.TraceID,
+		}
+		data, _ := json.Marshal(kafkaMsg)
+		h.producer.Send([]byte(ackMsg.MsgID), data)
+	}
 
 	return nil
 }
@@ -206,10 +258,25 @@ func (h *MessageHandler) handleRead(conn *connection.Connection, msg IncomingMes
 	if err := json.Unmarshal(msg.Data, &readMsg); err != nil {
 		return err
 	}
-
-	// TODO: 更新消息已读状态
-	// TODO: 通知发送者消息已读
-
+	if h.producer != nil {
+		kafkaMsg := KafkaMessage{
+			Type:    string(TypeRead),
+			Data:    readMsg,
+			TraceID: msg.TraceID,
+		}
+		data, _ := json.Marshal(kafkaMsg)
+		h.producer.Send([]byte(readMsg.ConversationID), data)
+	}
+	peerID := h.getPeerID(readMsg.ConversationID, conn.UserID)
+	if peerID > 0 {
+		outMsg := OutgoingMessage{
+			Type:    TypeRead,
+			Data:    readMsg,
+			TraceID: msg.TraceID,
+		}
+		data, _ := json.Marshal(outMsg)
+		h.manager.SendToUser(peerID, data)
+	}
 	return nil
 }
 
@@ -218,10 +285,34 @@ func (h *MessageHandler) handleTyping(conn *connection.Connection, msg IncomingM
 	if err := json.Unmarshal(msg.Data, &typingMsg); err != nil {
 		return err
 	}
-
-	// TODO: 通知对方正在输入
+	peerID := h.getPeerID(typingMsg.ConversationID, conn.UserID)
+	if peerID > 0 {
+		outMsg := OutgoingMessage{
+			Type:    TypeTyping,
+			Data:    typingMsg,
+			TraceID: msg.TraceID,
+		}
+		data, _ := json.Marshal(outMsg)
+		h.manager.SendToUser(peerID, data)
+	}
 
 	return nil
+}
+
+func (h *MessageHandler) getPeerID(convID string, userID int64) int64 {
+	if !strings.HasPrefix(convID, "conv_") {
+		return 0
+	}
+	parts := strings.Split(convID, "_")
+	if len(parts) != 3 {
+		return 0
+	}
+	id1, _ := strconv.ParseInt(parts[1], 10, 64)
+	id2, _ := strconv.ParseInt(parts[2], 10, 64)
+	if id1 == userID {
+		return id2
+	}
+	return id1
 }
 
 func (h *MessageHandler) handleHeartbeat(conn *connection.Connection, msg IncomingMessage) error {

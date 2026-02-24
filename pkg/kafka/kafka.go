@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+
 	"github.com/IBM/sarama"
 )
 
@@ -95,7 +96,8 @@ func (c *Consumer) Close() error {
 type consumerGroupHandler struct {
 	handler ConsumerHandler
 }
-func (h *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
+
+func (h *consumerGroupHandler) Setup(_ sarama.ConsumerGroupSession) error { return nil }
 
 func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 

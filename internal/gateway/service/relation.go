@@ -85,15 +85,34 @@ func (r *RelationChecker) GetBlockStatus(senderID, receiverID int64) (senderBloc
 	return
 }
 
-func (r *RelationChecker) CanSendMessage(senderID, receiverID int64) (bool, string) {
-	if senderID == receiverID {
-		return false, "cannot send message to yourself"
+type GroupMember struct {
+	ID      int64 `gorm:"primaryKey"`
+	GroupID int64 `gorm:"column:group_id"`
+	UserID  int64 `gorm:"column:user_id"`
+}
+
+func (GroupMember) TableName() string {
+	return "group_member"
+}
+
+func (r *RelationChecker) IsGroupMember(userID, groupID int64) bool {
+	if r.db == nil {
+		return true
 	}
-	if !r.IsFriend(senderID, receiverID) {
-		return false, "not friends with this user"
+	var count int64
+	r.db.Model(&GroupMember{}).
+		Where("user_id = ? AND group_id = ?", userID, groupID).
+		Count(&count)
+	return count > 0
+}
+
+func (r *RelationChecker) GetGroupMembers(groupID int64) ([]int64, error) {
+	if r.db == nil {
+		return nil, nil
 	}
-	if r.IsBlocked(senderID, receiverID) {
-		return false, "you have been blocked by this user"
-	}
-	return true, ""
+	var userIDs []int64
+	err := r.db.Model(&GroupMember{}).
+		Where("group_id = ?", groupID).
+		Pluck("user_id", &userIDs).Error
+	return userIDs, err
 }

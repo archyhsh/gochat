@@ -178,6 +178,7 @@
             <div class="sidebar-tabs">
                 <div class="tab active" onclick="showSidebarTab('chats')">聊天</div>
                 <div class="tab" onclick="showSidebarTab('friends')">好友</div>
+                <div class="tab" onclick="showSidebarTab('groups')">群组</div>
                 <div class="tab" onclick="showSidebarTab('requests')">申请<span class="badge hidden" id="requestBadge">0</span></div>
             </div>
             
@@ -186,6 +187,14 @@
             </div>
             <div class="sidebar-list hidden" id="friendList">
                 <div class="list-empty">暂无好友</div>
+            </div>
+            <div class="sidebar-list hidden" id="groupList">
+                <div style="padding: 20px; text-align: center;">
+                    <button onclick="showCreateGroupModal()" style="background:#5865f2;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;width:100%;">创建新群组</button>
+                </div>
+                <div id="groupListContent">
+                    <div class="list-empty">暂无已加入的群组</div>
+                </div>
             </div>
             <div class="sidebar-list hidden" id="requestList">
                 <div class="list-empty">暂无好友申请</div>
@@ -254,6 +263,7 @@
         let authToken = null;
         let ws = null;
         let friends = [];
+        let groups = [];
         let conversations = [];
         let currentChat = null;
         let messageOffset = 0;
@@ -596,50 +606,44 @@
             const c = document.getElementById('chatList');
             if (conversations.length) {
                 c.innerHTML = conversations.map(cv => {
-                    const f = friends.find(x => x.user_id === cv.peer_id) || {};
-                    const name = f.remark || f.nickname || `用户${cv.peer_id}`;
-                    const iBlocked = f.status === 1;
-                    const blockedByPeer = f.blocked_by_peer === 1;
-                    let badge = '';
-                    if (iBlocked && blockedByPeer) {
-                        badge = '<span style="background:#ed4245;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">互相拉黑</span>';
-                    } else if (iBlocked) {
-                        badge = '<span style="background:#faa81a;color:black;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">已拉黑</span>';
-                    } else if (blockedByPeer) {
-                        badge = '<span style="background:#ed4245;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">被拉黑</span>';
+                    const isGroup = cv.conversation_id.startsWith('group_');
+                    let name = `用户${cv.peer_id}`;
+                    let avatarText = 'U';
+                    let statusBadge = '';
+
+                    if (isGroup) {
+                        const g = groups.find(x => x.id === cv.peer_id) || {};
+                        name = g.name || `群组${cv.peer_id}`;
+                        avatarText = 'G';
+                    } else {
+                        const f = friends.find(x => x.user_id === cv.peer_id) || {};
+                        name = f.remark || f.nickname || name;
+                        avatarText = getInitial(name);
+                        
+                        const iBlocked = f.status === 1;
+                        const blockedByPeer = f.blocked_by_peer === 1;
+                        if (iBlocked && blockedByPeer) {
+                            statusBadge = '<span style="background:#ed4245;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">互相拉黑</span>';
+                        } else if (iBlocked) {
+                            statusBadge = '<span style="background:#faa81a;color:black;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">已拉黑</span>';
+                        } else if (blockedByPeer) {
+                            statusBadge = '<span style="background:#ed4245;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">被拉黑</span>';
+                        }
                     }
-                    return `<div class="list-item ${currentChat?.peerId === cv.peer_id ? 'active' : ''}" onclick="startChat(${cv.peer_id}, '${escapeHtml(name)}')">
-                        <div class="avatar" style="background:${getColor(cv.peer_id)}">${getInitial(name)}</div>
+
+                    const isActive = currentChat?.id === cv.conversation_id;
+
+                    return `<div class="list-item ${isActive ? 'active' : ''}" onclick="${isGroup ? `startGroupChat(${cv.peer_id}, '${escapeHtml(name)}')` : `startChat(${cv.peer_id}, '${escapeHtml(name)}')`}">
+                        <div class="avatar" style="background:${getColor(cv.peer_id)}">${avatarText}</div>
                         <div class="info">
-                            <div class="name">${escapeHtml(name)}${badge}</div>
+                            <div class="name">${escapeHtml(name)}${statusBadge}</div>
                             <div class="preview">${escapeHtml(cv.last_message || '')}</div>
                         </div>
                         <div class="meta"><div class="time">${formatTime(cv.last_message_time)}</div></div>
                     </div>`;
                 }).join('');
-            } else if (friends.length) {
-                c.innerHTML = friends.map(f => {
-                    const iBlocked = f.status === 1;
-                    const blockedByPeer = f.blocked_by_peer === 1;
-                    let badge = '';
-                    if (iBlocked && blockedByPeer) {
-                        badge = '<span style="background:#ed4245;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">互相拉黑</span>';
-                    } else if (iBlocked) {
-                        badge = '<span style="background:#faa81a;color:black;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">已拉黑</span>';
-                    } else if (blockedByPeer) {
-                        badge = '<span style="background:#ed4245;color:white;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:6px;">被拉黑</span>';
-                    }
-                    return `
-                    <div class="list-item ${currentChat?.peerId === f.user_id ? 'active' : ''}" onclick="startChat(${f.user_id}, '${escapeHtml(f.remark || f.nickname)}')">
-                        <div class="avatar" style="background:${getColor(f.user_id)}">${getInitial(f.nickname)}</div>
-                        <div class="info">
-                            <div class="name">${escapeHtml(f.remark || f.nickname)}${badge}</div>
-                            <div class="preview">点击开始聊天</div>
-                        </div>
-                    </div>`;
-                }).join('');
             } else {
-                c.innerHTML = '<div class="list-empty">添加好友开始聊天</div>';
+                c.innerHTML = '<div class="list-empty">暂无聊天记录</div>';
             }
         }
 
@@ -705,7 +709,15 @@
                 if (data.code === 0) {
                     const msgs = data.data.messages || [];
                     if (msgs.length < MESSAGE_LIMIT) document.getElementById('loadMoreBtn').style.display = 'none';
-                    msgs.reverse().forEach(m => appendMessage(m, true));
+                    
+                    // Don't reverse here. If we use afterend on loadMoreBtn, 
+                    // we should insert them in chronological order if they come DESC,
+                    // but wait: API returns [Newest...Oldest].
+                    // To get Oldest at Top and Newest at Bottom of the chunk:
+                    // Insert M1(Newest) -> Btn M1
+                    // Insert M2(Older)  -> Btn M2 M1
+                    // Result: Older -> Newer. Perfect.
+                    msgs.forEach(m => appendMessage(m, true));
                     messageOffset += msgs.length;
                 }
             } catch (e) {
@@ -720,7 +732,17 @@
             const c = document.getElementById('chatMessages');
             if (!c) return;
             const isSelf = msg.sender_id === currentUser.user_id;
-            const html = `<div class="message-group"><div class="sender"><span class="name">${isSelf ? '我' : currentChat.name}</span><span class="time">${formatTime(msg.created_at)}</span></div><div class="message-bubble ${isSelf ? 'self' : ''}">${escapeHtml(msg.content)}</div></div>`;
+            
+            // In group chat, show sender name for others
+            let senderDisplayName = isSelf ? '我' : (currentChat.isGroup ? `UID:${msg.sender_id}` : currentChat.name);
+            
+            // Try to find sender nickname in friends or group members if available
+            if (!isSelf && currentChat.isGroup) {
+                const friend = friends.find(f => f.user_id === msg.sender_id);
+                if (friend) senderDisplayName = friend.remark || friend.nickname;
+            }
+
+            const html = `<div class="message-group"><div class="sender"><span class="name">${senderDisplayName}</span><span class="time">${formatTime(msg.created_at)}</span></div><div class="message-bubble ${isSelf ? 'self' : ''}">${escapeHtml(msg.content)}</div></div>`;
             if (prepend) document.getElementById('loadMoreBtn').insertAdjacentHTML('afterend', html);
             else { c.insertAdjacentHTML('beforeend', html); c.scrollTop = c.scrollHeight; }
         }
@@ -734,9 +756,24 @@
             const content = input.value.trim();
             if (!content) return;
             
+            const msgData = {
+                msg_id: 'msg_' + Date.now(),
+                conversation_id: currentChat.id,
+                msg_type: 1,
+                content,
+                timestamp: Date.now()
+            };
+
+            if (currentChat.isGroup) {
+                msgData.group_id = currentChat.groupId;
+            } else {
+                msgData.receiver_id = currentChat.peerId;
+            }
+
             ws.send(JSON.stringify({
-                type: 'chat', trace_id: 'trace_' + Date.now(),
-                data: { msg_id: 'msg_' + Date.now(), conversation_id: currentChat.id, receiver_id: currentChat.peerId, msg_type: 1, content, timestamp: Date.now() }
+                type: 'chat', 
+                trace_id: 'trace_' + Date.now(),
+                data: msgData
             }));
             
             appendMessage({ sender_id: currentUser.user_id, content, created_at: new Date().toISOString() });
@@ -746,12 +783,91 @@
         // ==================== 侧边栏 ====================
         function showSidebarTab(tab) {
             document.querySelectorAll('.sidebar-tabs .tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+            const activeTab = Array.from(document.querySelectorAll('.sidebar-tabs .tab')).find(t => t.textContent.includes(tab === 'chats' ? '聊天' : tab === 'friends' ? '好友' : tab === 'groups' ? '群组' : '申请'));
+            if (activeTab) activeTab.classList.add('active');
+            
             document.getElementById('chatList').classList.toggle('hidden', tab !== 'chats');
             document.getElementById('friendList').classList.toggle('hidden', tab !== 'friends');
+            document.getElementById('groupList').classList.toggle('hidden', tab !== 'groups');
             document.getElementById('requestList').classList.toggle('hidden', tab !== 'requests');
+            
             if (tab === 'friends') loadFriends();
+            if (tab === 'groups') loadGroups();
             if (tab === 'requests') loadRequests();
+        }
+
+        // ==================== 群组 ====================
+        async function loadGroups() {
+            try {
+                const data = await api(`${RELATION_API}/api/v1/groups`);
+                if (data.code === 0) {
+                    groups = data.data || [];
+                    renderGroupList();
+                }
+            } catch (e) { console.error('Failed to load groups', e); }
+        }
+
+        function renderGroupList() {
+            const c = document.getElementById('groupListContent');
+            if (!groups.length) { c.innerHTML = '<div class="list-empty">暂无已加入的群组</div>'; return; }
+            c.innerHTML = groups.map(g => `
+                <div class="list-item" onclick="startGroupChat(${g.id}, '${escapeHtml(g.name)}')">
+                    <div class="avatar" style="background:${getColor(g.id)}">G</div>
+                    <div class="info">
+                        <div class="name">${escapeHtml(g.name)}</div>
+                        <div class="preview">${g.member_count} 位成员</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showCreateGroupModal() {
+            document.getElementById('createGroupModal').classList.remove('hidden');
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('createGroupModal').classList.add('hidden');
+        }
+
+        async function createGroup() {
+            const name = document.getElementById('newGroupName').value.trim();
+            const desc = document.getElementById('newGroupDesc').value.trim();
+            if (!name) { alert('请输入群组名称'); return; }
+            
+            try {
+                const data = await api(`${RELATION_API}/api/v1/groups`, {
+                    method: 'POST',
+                    body: { name, description: desc, member_ids: [] }
+                });
+                if (data.code === 0) {
+                    closeCreateGroupModal();
+                    loadGroups();
+                    startGroupChat(data.data.group_id, name);
+                } else {
+                    alert(data.message || '创建群组失败');
+                }
+            } catch (e) { alert('网络错误'); }
+        }
+
+        function startGroupChat(groupId, name) {
+            const convId = `group_${groupId}`;
+            currentChat = { id: convId, name, groupId, isGroup: true };
+            messageOffset = 0;
+            
+            document.getElementById('noChatView').classList.add('hidden');
+            document.getElementById('chatView').classList.remove('hidden');
+            document.getElementById('chatView').style.display = 'flex';
+            document.getElementById('chatAvatar').textContent = 'G';
+            document.getElementById('chatAvatar').style.background = getColor(groupId);
+            document.getElementById('chatName').textContent = name;
+            document.getElementById('chatMessages').innerHTML = '<div class="load-more" id="loadMoreBtn"><button onclick="loadMoreMessages()">加载更多消息</button></div>';
+            
+            // Hide block warnings for groups
+            document.getElementById('blockWarning').classList.add('hidden');
+            document.getElementById('blockedByPeerWarning').classList.add('hidden');
+            
+            loadMessages();
+            renderChatList();
         }
 
         // ==================== 聊天菜单 ====================
@@ -869,5 +985,21 @@
             }
         }
     </script>
+    <!-- 创建群组弹窗 -->
+    <div class="hidden" id="createGroupModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;">
+        <div style="background:#36393f;padding:25px;border-radius:12px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+            <h3 style="color:#fff;margin-bottom:20px;text-align:center;">创建新群组</h3>
+            <div style="margin-bottom:15px;">
+                <input type="text" id="newGroupName" placeholder="群组名称" style="width:100%;padding:12px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;">
+            </div>
+            <div style="margin-bottom:15px;">
+                <textarea id="newGroupDesc" placeholder="群组描述 (可选)" style="width:100%;padding:12px;background:#202225;border:1px solid #202225;border-radius:6px;color:#fff;outline:none;height:80px;resize:none;"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button onclick="closeCreateGroupModal()" style="flex:1;padding:12px;background:#4f545c;color:#fff;border:none;border-radius:6px;cursor:pointer;">取消</button>
+                <button onclick="createGroup()" style="flex:1;padding:12px;background:#5865f2;color:#fff;border:none;border-radius:6px;cursor:pointer;">创建</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

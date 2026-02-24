@@ -47,8 +47,6 @@ func main() {
 	jwtManager := auth.NewJWTManager(cfg.JWT.Secret, cfg.JWT.ExpireTime)
 	relationService := service.NewRelationService(database, log)
 	relationHandler := handler.NewRelationHandler(relationService, log)
-
-	// 创建 Kafka producer 用于发布关系变更事件
 	var kafkaProducer *kafka.Producer
 	if len(cfg.Kafka.Brokers) > 0 {
 		producer, err := kafka.NewProducer(cfg.Kafka.Brokers, cfg.Kafka.Topics.Relation)
@@ -75,6 +73,22 @@ func main() {
 	api.HandleFunc("/friends/{id:[0-9]+}/block", relationHandler.BlockFriend).Methods("POST")
 	api.HandleFunc("/friends/{id:[0-9]+}/unblock", relationHandler.UnblockFriend).Methods("POST")
 	api.HandleFunc("/friends/remark", relationHandler.UpdateRemark).Methods("PUT")
+
+	groupService := service.NewGroupService(database, log)
+	if kafkaProducer != nil {
+		groupService.SetProducer(kafkaProducer)
+	}
+	groupHandler := handler.NewGroupHandler(groupService, log)
+	api.HandleFunc("/groups", groupHandler.CreateGroup).Methods("POST")
+	api.HandleFunc("/groups", groupHandler.GetGroupList).Methods("GET")
+	api.HandleFunc("/groups/{id:[0-9]+}", groupHandler.GetGroupInfo).Methods("GET")
+	api.HandleFunc("/groups/{id:[0-9]+}/members", groupHandler.GetGroupMembers).Methods("GET")
+	api.HandleFunc("/groups/{id:[0-9]+}/join", groupHandler.JoinGroup).Methods("POST")
+	api.HandleFunc("/groups/{id:[0-9]+}/quit", groupHandler.QuitGroup).Methods("POST")
+	api.HandleFunc("/groups/{id:[0-9]+}/kick/{member_id:[0-9]+}", groupHandler.KickGroupMember).Methods("POST")
+	api.HandleFunc("/groups/{id:[0-9]+}", groupHandler.DismissGroup).Methods("DELETE")
+	api.HandleFunc("/groups/{id:[0-9]+}/announcement", groupHandler.UpdateAnnouncement).Methods("PUT")
+	api.HandleFunc("/groups/{id:[0-9]+}/announcement", groupHandler.GetAnnouncement).Methods("GET")
 
 	corsHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

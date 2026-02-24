@@ -40,6 +40,16 @@ type KafkaChatMessage struct {
 	TraceID string   `json:"trace_id,omitempty"`
 }
 
+type AckMessage struct {
+	MsgID  string `json:"msg_id"`
+	Status int    `json:"status"`
+}
+
+type ReadMessage struct {
+	ConversationID string   `json:"conversation_id"`
+	MsgIDs         []string `json:"msg_ids"`
+}
+
 type ChatData struct {
 	MsgID          string `json:"msg_id"`
 	ConversationID string `json:"conversation_id"`
