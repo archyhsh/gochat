@@ -103,15 +103,27 @@ func (s *MessageService) updateConversation(tx *gorm.DB, userID int64, msg *mode
 	if result.Error != nil {
 		return result.Error
 	}
+
 	if result.RowsAffected == 0 {
 		unreadCount := 0
 		if incrementUnread {
 			unreadCount = 1
 		}
+		var peerID int64
+		if msg.GroupID > 0 {
+			peerID = msg.GroupID
+		} else {
+			if msg.SenderID == userID {
+				peerID = msg.ReceiverID
+			} else {
+				peerID = msg.SenderID
+			}
+		}
+
 		insertSQL := `INSERT INTO user_conversation 
-					 (user_id, conversation_id, last_msg_id, last_msg_time, unread_count, is_deleted) 
-					 VALUES (?, ?, ?, ?, ?, 0)`
-		return tx.Exec(insertSQL, userID, msg.ConversationID, msg.MsgID, msgTime, unreadCount).Error
+					 (user_id, conversation_id, peer_id, last_msg_id, last_msg_time, unread_count, is_deleted) 
+					 VALUES (?, ?, ?, ?, ?, ?, 0)`
+		return tx.Exec(insertSQL, userID, msg.ConversationID, peerID, msg.MsgID, msgTime, unreadCount).Error
 	}
 
 	return nil
@@ -212,23 +224,13 @@ func (s *MessageService) GetConversationMessagesSimple(conversationID string, li
 func (s *MessageService) GetUserConversations(userID int64, limit int) ([]model.ConversationInfo, error) {
 	var conversations []model.ConversationInfo
 
-	sql := `SELECT uc.conversation_id, uc.unread_count, uc.last_msg_id, uc.last_msg_time as last_message_time,
-				CASE 
-					WHEN uc.conversation_id LIKE 'group_%' THEN CAST(SUBSTRING(uc.conversation_id, 7) AS UNSIGNED)
-					WHEN uc.conversation_id LIKE 'conv_%' THEN 
-						CASE 
-							WHEN CAST(SUBSTRING_INDEX(SUBSTRING(uc.conversation_id, 6), '_', 1) AS UNSIGNED) = ? 
-							THEN CAST(SUBSTRING_INDEX(uc.conversation_id, '_', -1) AS UNSIGNED)
-							ELSE CAST(SUBSTRING_INDEX(SUBSTRING(uc.conversation_id, 6), '_', 1) AS UNSIGNED)
-						END
-					ELSE 0
-				END as peer_id
-			FROM user_conversation uc
-			WHERE uc.user_id = ? AND uc.is_deleted = 0
-			ORDER BY uc.last_msg_time DESC
+	sql := `SELECT conversation_id, peer_id, unread_count, last_msg_id, last_msg_time as last_message_time
+			FROM user_conversation
+			WHERE user_id = ? AND is_deleted = 0
+			ORDER BY last_msg_time DESC
 			LIMIT ?`
 
-	err := s.db.Raw(sql, userID, userID, limit).Scan(&conversations).Error
+	err := s.db.Raw(sql, userID, limit).Scan(&conversations).Error
 
 	if err != nil {
 		s.logger.Error("Failed to get user conversations", "userID", userID, "error", err)

@@ -6,6 +6,7 @@
 ```bash
 # 启动 MySQL 和 Kafka
 docker-compose up -d mysql kafka
+sql 重构后 请使用 docker-compose down -v
 ```
 
 ## 2. 初始化数据库

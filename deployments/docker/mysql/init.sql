@@ -1,12 +1,7 @@
--- GoChat 数据库初始化脚本
--- 创建时间: 2024
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ----------------------------
--- 用户表
--- ----------------------------
 CREATE TABLE IF NOT EXISTS `user` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(50) NOT NULL COMMENT '用户名',
@@ -25,9 +20,6 @@ CREATE TABLE IF NOT EXISTS `user` (
   KEY `idx_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
--- ----------------------------
--- 好友关系表 (双向存储)
--- ----------------------------
 CREATE TABLE IF NOT EXISTS `friendship` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
@@ -38,12 +30,10 @@ CREATE TABLE IF NOT EXISTS `friendship` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_friend` (`user_id`, `friend_id`),
-  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_status` (`user_id`, `status`),
   KEY `idx_friend_id` (`friend_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='好友关系表';
 
--- ----------------------------
--- 好友申请表
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `friend_apply` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
@@ -59,9 +49,6 @@ CREATE TABLE IF NOT EXISTS `friend_apply` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='好友申请表';
 
--- ----------------------------
--- 群组表
--- ----------------------------
 CREATE TABLE IF NOT EXISTS `group` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL COMMENT '群名称',
@@ -80,9 +67,7 @@ CREATE TABLE IF NOT EXISTS `group` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群组表';
 
--- ----------------------------
--- 群成员表
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `group_member` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `group_id` BIGINT NOT NULL COMMENT '群ID',
@@ -95,13 +80,11 @@ CREATE TABLE IF NOT EXISTS `group_member` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_group_user` (`group_id`, `user_id`),
-  KEY `idx_group_id` (`group_id`),
-  KEY `idx_user_id` (`user_id`)
+  KEY `idx_user_group_role` (`user_id`, `group_id`, `role`),
+  KEY `idx_group_id` (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群成员表';
 
--- ----------------------------
--- 群申请表
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `group_request` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `group_id` BIGINT NOT NULL COMMENT '群ID',
@@ -115,9 +98,7 @@ CREATE TABLE IF NOT EXISTS `group_request` (
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群申请表';
 
--- ----------------------------
--- 会话表
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `conversation` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `conversation_id` VARCHAR(64) NOT NULL COMMENT '会话ID',
@@ -129,13 +110,12 @@ CREATE TABLE IF NOT EXISTS `conversation` (
   KEY `idx_type_target` (`type`, `target_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='会话表';
 
--- ----------------------------
--- 用户会话表 (存储用户的会话列表)
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `user_conversation` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
   `conversation_id` VARCHAR(64) NOT NULL COMMENT '会话ID',
+  `peer_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'Receiver or Group ID',
   `unread_count` INT DEFAULT 0 COMMENT '未读消息数',
   `last_msg_id` VARCHAR(64) DEFAULT '' COMMENT '最后一条消息ID',
   `last_msg_time` TIMESTAMP NULL COMMENT '最后消息时间',
@@ -146,13 +126,11 @@ CREATE TABLE IF NOT EXISTS `user_conversation` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_conv` (`user_id`, `conversation_id`),
-  KEY `idx_user_id` (`user_id`),
+  KEY `idx_user_active_list` (`user_id`, `is_deleted`, `last_msg_time` DESC),
   KEY `idx_last_msg_time` (`last_msg_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户会话表';
 
--- ----------------------------
--- 消息表模板 (按月分表)
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `message_template` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `msg_id` VARCHAR(64) NOT NULL COMMENT '消息ID (Snowflake)',
@@ -166,18 +144,14 @@ CREATE TABLE IF NOT EXISTS `message_template` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_msg_id` (`msg_id`),
-  KEY `idx_conversation_id` (`conversation_id`),
+  KEY `idx_conv_created` (`conversation_id`, `created_at` DESC),
   KEY `idx_sender_id` (`sender_id`),
-  KEY `idx_created_at` (`created_at`),
-  KEY `idx_conv_time` (`conversation_id`, `created_at`)
+  KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息表模板';
 
--- 创建当月消息表
-CREATE TABLE IF NOT EXISTS `message_202601` LIKE `message_template`;
+CREATE TABLE IF NOT EXISTS `message_202602` LIKE `message_template`;
 
--- ----------------------------
--- 消息已读状态表
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `message_read` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `msg_id` VARCHAR(64) NOT NULL COMMENT '消息ID',
@@ -188,9 +162,7 @@ CREATE TABLE IF NOT EXISTS `message_read` (
   KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息已读状态表';
 
--- ----------------------------
--- 文件表
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `file` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `file_id` VARCHAR(64) NOT NULL COMMENT '文件ID',
@@ -209,9 +181,7 @@ CREATE TABLE IF NOT EXISTS `file` (
   KEY `idx_md5` (`md5`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件表';
 
--- ----------------------------
--- 用户设备表 (推送)
--- ----------------------------
+
 CREATE TABLE IF NOT EXISTS `user_device` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
@@ -228,7 +198,7 @@ CREATE TABLE IF NOT EXISTS `user_device` (
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- 插入测试用户
+
 INSERT INTO `user` (`id`, `username`, `password`, `nickname`) VALUES
 (1, 'admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '管理员'),
 (2, 'test1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', '测试用户1'),
