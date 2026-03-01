@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package gochat.rpc;
+
+option go_package = "./pb";
+
+enum DevicePlatform {
+    PLATFORM_UNSPECIFIED = 0;
+    PLATFORM_WEB = 1;
+    PLATFORM_IOS = 2;
+    PLATFORM_ANDROID = 3;
+    PLATFORM_DESKTOP = 4;
+}
+
+enum MessageStatus {
+    MESSAGE_STATUS_UNSPECIFIED = 0;
+    MESSAGE_STATUS_SENDING = 1;
+    MESSAGE_STATUS_SENT = 2;
+    MESSAGE_STATUS_DELIVERED = 3;
+    MESSAGE_STATUS_READ = 4;
+    MESSAGE_STATUS_FAILED = 5;
+}
+
+message BaseResponse {
+    int32 code = 1;
+    string message = 2;
+    string trace_id = 3;
+}
+
+message PagingRequest {
+    int32 page = 1;
+    int32 limit = 2;
+    string cursor = 3;
+}
+
+message UserAvatar {
+    int64 user_id = 1;
+    string nickname = 2;
+    string avatar = 3;
+    string remark = 4;
+}
+
+message GroupSummary {
+    int64 group_id = 1;
+    string name = 2;
+    string avatar = 3;
+}

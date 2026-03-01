@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package gochat.rpc;
+
+import "common.proto";
+import "message.proto";
+
+option go_package = "./pb";
+
+service ChatService {
+    rpc StreamMessages(stream IncomingMessage) returns (stream OutgoingMessage);
+}
+
+message IncomingMessage {
+    enum Type {
+        TYPE_UNSPECIFIED = 0;
+        TYPE_CHAT = 1;
+        TYPE_ACK = 2;
+        TYPE_READ = 3;
+        TYPE_TYPING = 4;
+        TYPE_HEARTBEAT = 5;
+    }
+    Type type = 1;
+    string trace_id = 2;
+    oneof payload {
+        ChatMessage chat_msg = 3;
+        AckPayload ack_msg = 4;
+        ReadPayload read_msg = 5;
+        TypingPayload typing_msg = 6;
+    }
+}
+
+message OutgoingMessage {
+    enum Type {
+        TYPE_UNSPECIFIED = 0;
+        TYPE_CHAT = 1;
+        TYPE_ACK = 2;
+        TYPE_READ = 3;
+        TYPE_TYPING = 4;
+        TYPE_HEARTBEAT = 5;
+        TYPE_ERROR = 6;
+        TYPE_SYSTEM = 7;
+    }
+    Type type = 1;
+    string trace_id = 2;
+    oneof payload {
+        ChatMessage chat_msg = 3;
+        AckPayload ack_msg = 4;
+        ReadPayload read_msg = 5;
+        TypingPayload typing_msg = 6;
+        ErrorPayload error_msg = 7;
+        SystemPayload system_msg = 8;
+    }
+}
+
+message AckPayload {
+    string msg_id = 1;
+    int32 status = 2;
+}
+
+message ReadPayload {
+    string conversation_id = 1;
+    repeated string msg_ids = 2;
+}
+
+message TypingPayload {
+    string conversation_id = 1;
+    bool is_typing = 2;
+}
+
+message ErrorPayload {
+    int32 code = 1;
+    string message = 2;
+}
+
+message SystemPayload {
+    string content = 1;
+    map<string, string> extra = 2;
+}

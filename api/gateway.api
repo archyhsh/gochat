@@ -1,0 +1,15 @@
+syntax = "v1"
+
+import "common.api"
+import "user.api"
+import "relation.api"
+import "group.api"
+import "message.api"
+
+info (
+	title:   "Gochat Gateway API"
+	desc:    "Aggregated APIs for Gochat system"
+	author:  "archyhsh"
+	version: "v1"
+)
+

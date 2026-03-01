@@ -1,0 +1,57 @@
+syntax = "v1"
+
+type (
+    Message {
+        MsgId          string `json:"msg_id"`
+        ConversationId string `json:"conversation_id"`
+        SenderId       int64  `json:"sender_id"`
+        Content        string `json:"content"`
+        MsgType        int    `json:"msg_type"`
+        Timestamp      int64  `json:"timestamp"`
+    }
+
+    MessagesResponse {
+        Messages []Message `json:"messages"`
+    }
+
+    Conversation {
+        ConversationId  string `json:"conversation_id"`
+        PeerId          int64  `json:"peer_id"`
+        UnreadCount     int    `json:"unread_count"`
+        LastMessage     string `json:"last_message"`
+        LastMessageTime int64  `json:"last_message_time"`
+    }
+
+    ConversationsResponse {
+        Conversations []Conversation `json:"conversations"`
+    }
+
+    GetMessagesRequest {
+        ConversationId string `form:"conversation_id"`
+        Limit          int    `form:"limit,default=20"`
+        Offset         int    `form:"offset,default=0"`
+    }
+
+    ClearUnreadRequest {
+        ConversationId string `json:"conversation_id"`
+    }
+)
+
+@server(
+    group: message
+    prefix: /api/v1
+    middleware: AuthMiddleware
+)
+service gateway {
+    @handler GetMessages
+    get /messages (GetMessagesRequest) returns (MessagesResponse)
+
+    @handler GetConversations
+    get /conversations returns (ConversationsResponse)
+
+    @handler ClearUnread
+    post /conversations/clear_unread (ClearUnreadRequest) returns (CommonResponse)
+
+    @handler GetMessageById
+    get /messages/:msg_id returns (Message)
+}

@@ -1,4 +1,3 @@
-
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -118,7 +117,10 @@ CREATE TABLE IF NOT EXISTS `user_conversation` (
   `peer_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'Receiver or Group ID',
   `unread_count` INT DEFAULT 0 COMMENT '未读消息数',
   `last_msg_id` VARCHAR(64) DEFAULT '' COMMENT '最后一条消息ID',
-  `last_msg_time` TIMESTAMP NULL COMMENT '最后消息时间',
+  `last_msg_time` TIMESTAMP NOT NULL COMMENT '最后消息时间',
+  `last_msg_content` TEXT NOT NULL COMMENT '最后一条消息内容',
+  `last_msg_type` TINYINT DEFAULT 0 COMMENT '最后一条消息类型',
+  `last_sender_id` BIGINT DEFAULT 0 COMMENT '最后一条消息发送者ID',
   `is_top` TINYINT DEFAULT 0 COMMENT '是否置顶',
   `is_muted` TINYINT DEFAULT 0 COMMENT '是否免打扰',
   `is_deleted` TINYINT DEFAULT 0 COMMENT '是否删除',

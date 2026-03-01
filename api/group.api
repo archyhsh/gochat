@@ -1,0 +1,88 @@
+syntax = "v1"
+
+type (
+    CreateGroupRequest {
+        Name        string `json:"name"`
+        Avatar      string `json:"avatar,optional"`
+        Description string `json:"description,optional"`
+    }
+
+    GroupInfo {
+        Id           int64  `json:"id"`
+        Name         string `json:"name"`
+        Avatar       string `json:"avatar"`
+        Description  string `json:"description"`
+        Announcement string `json:"announcement"`
+        OwnerId      int64  `json:"owner_id"`
+    }
+
+    GroupListResponse {
+        Groups []GroupInfo `json:"groups"`
+    }
+
+    GroupMember {
+        UserId   int64  `json:"user_id"`
+        Nickname string `json:"nickname"`
+        Avatar   string `json:"avatar"`
+        Role     int    `json:"role"`
+    }
+
+    GroupMembersResponse {
+        Members []GroupMember `json:"members"`
+    }
+
+    JoinGroupRequest {
+        Message string `json:"message,optional"`
+    }
+
+    UpdateAnnouncementRequest {
+        Content string `json:"content"`
+    }
+
+    InviteRequest {
+        MemberIds []int64 `json:"member_ids"`
+    }
+)
+
+@server(
+    group: group
+    prefix: /api/v1
+    middleware: AuthMiddleware
+)
+service gateway {
+    @handler CreateGroup
+    post /groups (CreateGroupRequest) returns (GroupInfo)
+
+    @handler GetGroupList
+    get /groups returns (GroupListResponse)
+
+    @handler GetGroupInfo
+    get /groups/:id returns (GroupInfo)
+
+    @handler GetGroupMembers
+    get /groups/:id/members returns (GroupMembersResponse)
+
+    @handler JoinGroup
+    post /groups/:id/join (JoinGroupRequest) returns (CommonResponse)
+
+    @handler QuitGroup
+    post /groups/:id/quit returns (CommonResponse)
+
+    @handler KickMember
+    post /groups/:id/kick/:member_id returns (CommonResponse)
+
+    @handler DismissGroup
+    delete /groups/:id returns (CommonResponse)
+
+    @handler UpdateAnnouncement
+    put /groups/:id/announcement (UpdateAnnouncementRequest) returns (CommonResponse)
+
+    @handler GetAnnouncement
+    get /groups/:id/announcement returns (CommonResponse)
+
+    @handler SearchGroups
+    get /groups/search returns (GroupListResponse)
+
+    @handler InviteMembers
+    post /groups/:id/invite (InviteRequest) returns (CommonResponse)
+}

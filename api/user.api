@@ -1,0 +1,79 @@
+syntax = "v1"
+
+info (
+	title:   "User Service API"
+	desc:    "User registration, login and management"
+	author:  "archyhsh"
+	version: "v1"
+)
+
+type (
+	User {
+		Id       int64  `json:"id"`
+		Username string `json:"username"`
+		Nickname string `json:"nickname"`
+		Avatar   string `json:"avatar"`
+		Phone    string `json:"phone"`
+		Email    string `json:"email"`
+		Gender   int    `json:"gender"`
+	}
+	RegisterRequest {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		Nickname string `json:"nickname"`
+	}
+	LoginRequest {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	LoginResponse {
+		Token string `json:"token"`
+		User  User   `json:"user"`
+	}
+	UpdateUserRequest {
+		Nickname string `json:"nickname,optional"`
+		Avatar   string `json:"avatar,optional"`
+		Phone    string `json:"phone,optional"`
+		Email    string `json:"email,optional"`
+		Gender   int    `json:"gender,optional"`
+	}
+	SearchRequest {
+		Keyword string `form:"keyword"`
+		Limit   int    `form:"limit,default=20"`
+	}
+	SearchResponse {
+		Users []User `json:"users"`
+	}
+)
+
+@server (
+	group:  user
+	prefix: /api/v1
+)
+service gateway {
+	@handler Register
+	post /register (RegisterRequest) returns (User)
+
+	@handler Login
+	post /login (LoginRequest) returns (LoginResponse)
+
+	@handler GetUser
+	get /users/:id (SearchRequest) returns (User)
+}
+
+@server (
+	group:      user
+	prefix:     /api/v1
+	middleware: AuthMiddleware
+)
+service gateway {
+	@handler GetCurrentUser
+	get /user/me returns (User)
+
+	@handler UpdateUser
+	put /user/me (UpdateUserRequest) returns (User)
+
+	@handler SearchUsers
+	get /users/search (SearchRequest) returns (SearchResponse)
+}
+
