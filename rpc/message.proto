@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package gochat.rpc;
+
+import "common.proto";
+
+option go_package = "./pb";
+
+service MessageService {
+    rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+    rpc GetConversations(GetConversationsRequest) returns (GetConversationsResponse);
+    rpc ClearUnread(ClearUnreadRequest) returns (ClearUnreadResponse);
+    rpc GetMessageByID(GetMessageByIDRequest) returns (GetMessageByIDResponse);
+}
+
+message ChatMessage {
+    string msg_id = 1;
+    string conversation_id = 2;
+    int64 sender_id = 3;
+    int64 receiver_id = 4;
+    int64 group_id = 5;
+    int32 msg_type = 6;
+    string content = 7;
+    int32 status = 8;
+    int64 timestamp = 9;
+}
+
+message ConversationInfo {
+    string conversation_id = 1;
+    int64 peer_id = 2;
+    int32 unread_count = 3;
+    string last_msg_id = 4;
+    string last_message = 5;
+    int32 last_msg_type = 6;
+    int64 last_sender_id = 7;
+    int64 last_message_time = 8;
+    int32 is_top = 9;
+    int32 is_muted = 10;
+}
+
+message GetMessagesRequest {
+    string conversation_id = 1;
+    int32 limit = 2;
+    int32 offset = 3;
+}
+
+message GetMessagesResponse {
+    BaseResponse base = 1;
+    repeated ChatMessage messages = 2;
+}
+
+message GetConversationsRequest {
+    int32 limit = 1;
+}
+
+message GetConversationsResponse {
+    BaseResponse base = 1;
+    repeated ConversationInfo conversations = 2;
+}
+
+message ClearUnreadRequest {
+    string conversation_id = 1;
+}
+
+message ClearUnreadResponse {
+    BaseResponse base = 1;
+}
+
+message GetMessageByIDRequest {
+    string msg_id = 1;
+}
+
+message GetMessageByIDResponse {
+    BaseResponse base = 1;
+    ChatMessage message = 2;
+}

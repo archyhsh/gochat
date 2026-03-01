@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package gochat.rpc;
+
+import "common.proto";
+
+option go_package = "./pb";
+
+service RelationService {
+    rpc Apply(ApplyRequest) returns (ApplyResponse);
+    rpc HandleApply(HandleApplyRequest) returns (HandleApplyResponse);
+    rpc GetFriendList(GetFriendListRequest) returns (GetFriendListResponse);
+    rpc GetApplyList(GetApplyListRequest) returns (GetApplyListResponse);
+    rpc DeleteFriend(DeleteFriendRequest) returns (DeleteFriendResponse);
+    rpc BlockFriend(BlockFriendRequest) returns (BlockFriendResponse);
+    rpc UnblockFriend(UnblockFriendRequest) returns (UnblockFriendResponse);
+    rpc UpdateRemark(UpdateRemarkRequest) returns (UpdateRemarkResponse);
+    rpc CheckFriend(CheckFriendRequest) returns (CheckFriendResponse);
+}
+
+message CheckFriendRequest {
+    int64 user_id = 1;
+    int64 friend_id = 2;
+}
+
+message CheckFriendResponse {
+    bool is_friend = 1;
+    bool is_blocked = 2;
+}
+
+message FriendApply {
+    int64 id = 1;
+    int64 from_user_id = 2;
+    int64 to_user_id = 3;
+    string message = 4;
+    int32 status = 5;
+    int64 created_at = 6;
+}
+
+message ApplyRequest {
+    int64 to_user_id = 1;
+    string message = 2;
+}
+
+message ApplyResponse {
+    BaseResponse base = 1;
+}
+
+message HandleApplyRequest {
+    int64 apply_id = 1;
+    bool accept = 2;
+}
+
+message HandleApplyResponse {
+    BaseResponse base = 1;
+}
+
+message GetFriendListRequest {}
+
+message GetFriendListResponse {
+    BaseResponse base = 1;
+    repeated UserAvatar friends = 2;
+}
+
+message GetApplyListRequest {}
+
+message GetApplyListResponse {
+    BaseResponse base = 1;
+    repeated FriendApply applies = 2;
+}
+
+message DeleteFriendRequest {
+    int64 friend_id = 1;
+}
+
+message DeleteFriendResponse {
+    BaseResponse base = 1;
+}
+
+message BlockFriendRequest {
+    int64 friend_id = 1;
+}
+
+message BlockFriendResponse {
+    BaseResponse base = 1;
+}
+
+message UnblockFriendRequest {
+    int64 friend_id = 1;
+}
+
+message UnblockFriendResponse {
+    BaseResponse base = 1;
+}
+
+message UpdateRemarkRequest {
+    int64 friend_id = 1;
+    string remark = 2;
+}
+
+message UpdateRemarkResponse {
+    BaseResponse base = 1;
+}

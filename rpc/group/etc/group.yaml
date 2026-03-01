@@ -1,0 +1,12 @@
+Name: group.rpc
+ListenOn: 0.0.0.0:8083
+Etcd:
+  Hosts:
+  - 127.0.0.1:2379
+  Key: group.rpc
+
+Kafka:
+  Brokers:
+    - localhost:9092
+  Topics:
+    Group: group-topic

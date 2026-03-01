@@ -1,0 +1,16 @@
+Name: user.rpc
+ListenOn: 0.0.0.0:8080
+Etcd:
+  Hosts:
+  - 127.0.0.1:2379
+  Key: user.rpc
+
+Kafka:
+  Brokers:
+    - localhost:9091
+  Topics:
+    Group: user-topic
+
+Auth:
+  AccessSecret: ${JWT_SECRET}
+  AccessExpire: ${JWT_EXPIRE}

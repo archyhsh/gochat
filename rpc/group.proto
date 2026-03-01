@@ -1,0 +1,159 @@
+syntax = "proto3";
+
+package gochat.rpc;
+
+import "common.proto";
+
+option go_package = "./pb";
+
+service GroupService {
+    rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+    rpc GetGroupList(GetGroupListRequest) returns (GetGroupListResponse);
+    rpc GetGroupInfo(GetGroupInfoRequest) returns (GetGroupInfoResponse);
+    rpc GetGroupMembers(GetGroupMembersRequest) returns (GetGroupMembersResponse);
+    rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse);
+    rpc QuitGroup(QuitGroupRequest) returns (QuitGroupResponse);
+    rpc KickGroupMember(KickGroupMemberRequest) returns (KickGroupMemberResponse);
+    rpc DismissGroup(DismissGroupRequest) returns (DismissGroupResponse);
+    rpc UpdateAnnouncement(UpdateAnnouncementRequest) returns (UpdateAnnouncementResponse);
+    rpc GetAnnouncement(GetAnnouncementRequest) returns (GetAnnouncementResponse);
+    rpc SearchGroups(SearchGroupsRequest) returns (SearchGroupsResponse);
+    rpc InviteMembers(InviteMembersRequest) returns (InviteMembersResponse);
+    rpc CheckGroupMember(CheckGroupMemberRequest) returns (CheckGroupMemberResponse);
+}
+
+message CheckGroupMemberRequest {
+    int64 user_id = 1;
+    int64 group_id = 2;
+}
+
+message CheckGroupMemberResponse {
+    bool is_member = 1;
+    int32 role = 2;
+}
+
+message Group {
+    int64 id = 1;
+    string name = 2;
+    string avatar = 3;
+    string description = 4;
+    string announcement = 5;
+    int64 owner_id = 6;
+    int32 status = 7;
+    int64 created_at = 8;
+    int64 updated_at = 9;
+}
+
+message GroupMember {
+    int64 user_id = 1;
+    string nickname = 2;
+    string avatar = 3;
+    int32 role = 4;
+    int64 joined_at = 5;
+}
+
+message CreateGroupRequest {
+    string name = 1;
+    string avatar = 2;
+    string description = 3;
+}
+
+message CreateGroupResponse {
+    BaseResponse base = 1;
+    Group group = 2;
+}
+
+message GetGroupListRequest {}
+
+message GetGroupListResponse {
+    BaseResponse base = 1;
+    repeated GroupSummary groups = 2;
+}
+
+message GetGroupInfoRequest {
+    int64 group_id = 1;
+}
+
+message GetGroupInfoResponse {
+    BaseResponse base = 1;
+    Group group = 2;
+}
+
+message GetGroupMembersRequest {
+    int64 group_id = 1;
+}
+
+message GetGroupMembersResponse {
+    BaseResponse base = 1;
+    repeated GroupMember members = 2;
+}
+
+message JoinGroupRequest {
+    int64 group_id = 1;
+    string message = 2;
+}
+
+message JoinGroupResponse {
+    BaseResponse base = 1;
+}
+
+message QuitGroupRequest {
+    int64 group_id = 1;
+}
+
+message QuitGroupResponse {
+    BaseResponse base = 1;
+}
+
+message KickGroupMemberRequest {
+    int64 group_id = 1;
+    int64 member_id = 2;
+}
+
+message KickGroupMemberResponse {
+    BaseResponse base = 1;
+}
+
+message DismissGroupRequest {
+    int64 group_id = 1;
+}
+
+message DismissGroupResponse {
+    BaseResponse base = 1;
+}
+
+message UpdateAnnouncementRequest {
+    int64 group_id = 1;
+    string content = 2;
+}
+
+message UpdateAnnouncementResponse {
+    BaseResponse base = 1;
+}
+
+message GetAnnouncementRequest {
+    int64 group_id = 1;
+}
+
+message GetAnnouncementResponse {
+    BaseResponse base = 1;
+    string announcement = 2;
+}
+
+message SearchGroupsRequest {
+    string keyword = 1;
+}
+
+message SearchGroupsResponse {
+    BaseResponse base = 1;
+    repeated GroupSummary groups = 2;
+}
+
+message InviteMembersRequest {
+    int64 group_id = 1;
+    repeated int64 member_ids = 2;
+}
+
+message InviteMembersResponse {
+    BaseResponse base = 1;
+}
