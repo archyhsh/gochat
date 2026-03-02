@@ -2,11 +2,13 @@ package logic
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
 	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -27,7 +29,18 @@ func NewGetGroupListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetG
 }
 
 func (l *GetGroupListLogic) GetGroupList(in *pb.GetGroupListRequest) (*pb.GetGroupListResponse, error) {
-	UserId := int64(1) // TODO: get user id from context
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	UserId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
 	groups, err := l.svcCtx.GroupModel.FindGroupsByUserId(l.ctx, UserId)
 	if err != nil && model.ErrNotFound != err {
 		return nil, status.Error(codes.Internal, "Failed to get group list")

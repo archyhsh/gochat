@@ -18,6 +18,7 @@ type (
 		FindGroupsByUserId(ctx context.Context, userId int64) ([]*Group, error)
 		FindValidGroupsByGroupId(ctx context.Context, groupId int64) (*Group, error)
 		SearchGroupsByName(ctx context.Context, name string) ([]*Group, error)
+		CheckOwner(ctx context.Context, groupId int64) (int64, error)
 	}
 
 	customGroupModel struct {
@@ -51,4 +52,14 @@ func (m *customGroupModel) SearchGroupsByName(ctx context.Context, name string) 
 	var resp []*Group
 	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, name+"%")
 	return resp, err
+}
+
+func (m *customGroupModel) CheckOwner(ctx context.Context, groupId int64) (int64, error) {
+	query := fmt.Sprintf("SELECT `owner_id` FROM %s WHERE id = ?", m.table)
+	var ownerId int64
+	err := m.QueryRowNoCacheCtx(ctx, &ownerId, query, groupId)
+	if err != nil {
+		return 0, err
+	}
+	return ownerId, nil
 }

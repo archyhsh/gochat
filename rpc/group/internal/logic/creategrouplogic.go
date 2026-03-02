@@ -10,6 +10,7 @@ import (
 	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -31,17 +32,27 @@ func NewCreateGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 }
 
 func (l *CreateGroupLogic) CreateGroup(in *pb.CreateGroupRequest) (*pb.CreateGroupResponse, error) {
-	// TODO: Get ownerID from context or request metadata
-	ownerID := int64(1)
-	var groupID int64
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	ownerId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
+	var groupId int64
 
 	// Use TransactCtx to ensure atomicity of group creation and adding owner as member
-	err := l.svcCtx.SqlConn.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+	err = l.svcCtx.SqlConn.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
 		res, err := l.svcCtx.GroupModel.Insert(ctx, &model.Group{
 			Name:        in.Name,
 			Avatar:      in.Avatar,
 			Description: in.Description,
-			OwnerId:     ownerID,
+			OwnerId:     ownerId,
 			MaxMembers:  500,
 			MemberCount: 1,
 			Status:      1,
@@ -49,13 +60,13 @@ func (l *CreateGroupLogic) CreateGroup(in *pb.CreateGroupRequest) (*pb.CreateGro
 		if err != nil {
 			return err
 		}
-		groupID, err = res.LastInsertId()
+		groupId, err = res.LastInsertId()
 		if err != nil {
 			return err
 		}
 		_, err = l.svcCtx.GroupMemberModel.Insert(ctx, &model.GroupMember{
-			GroupId:  groupID,
-			UserId:   ownerID,
+			GroupId:  groupId,
+			UserId:   ownerId,
 			Role:     2,
 			JoinedAt: time.Now(),
 		})
@@ -71,23 +82,23 @@ func (l *CreateGroupLogic) CreateGroup(in *pb.CreateGroupRequest) (*pb.CreateGro
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "create",
-			"group_id":  groupID,
-			"owner_id":  ownerID,
+			"group_id":  groupId,
+			"owner_id":  ownerId,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
-		key := strconv.FormatInt(groupID, 10)
+		key := strconv.FormatInt(groupId, 10)
 		_ = l.svcCtx.Config.Producer.Send([]byte(key), data)
 	}
 
 	return &pb.CreateGroupResponse{
 		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
 		Group: &pb.Group{
-			Id:          groupID,
+			Id:          groupId,
 			Name:        in.Name,
 			Avatar:      in.Avatar,
 			Description: in.Description,
-			OwnerId:     ownerID,
+			OwnerId:     ownerId,
 		},
 	}, nil
 }

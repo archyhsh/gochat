@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/archyhsh/gochat/internal/gateway/connection"
-	"github.com/archyhsh/gochat/pkg/logger"
 	"github.com/archyhsh/gochat/rpc/chat/internal/config"
 	"github.com/archyhsh/gochat/rpc/chat/internal/server"
 	"github.com/archyhsh/gochat/rpc/chat/internal/svc"
@@ -25,13 +23,7 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
-
-	// Initialize dependencies for standalone RPC server (for testing)
-	log := logger.New("info", "console")
-	manager := connection.NewManager(log)
-	manager.Start()
-
-	ctx := svc.NewServiceContext(c, manager)
+	ctx := svc.NewServiceContext(c)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
 		pb.RegisterChatServiceServer(grpcServer, server.NewChatServiceServer(ctx))

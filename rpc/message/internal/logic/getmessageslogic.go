@@ -2,11 +2,13 @@ package logic
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/message/model"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -27,8 +29,18 @@ func NewGetMessagesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMe
 }
 
 func (l *GetMessagesLogic) GetMessages(in *pb.GetMessagesRequest) (*pb.GetMessagesResponse, error) {
-	//todo: get userId from context
-	userId := int64(1)
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
 	uc, err := l.svcCtx.UserConversationModel.FindUserConversationsByUserIdAndConversationId(userId, in.ConversationId)
 	if err != nil {
 		if err == model.ErrNotFound {

@@ -30,6 +30,9 @@ type (
 		Token string `json:"token"`
 		User  User   `json:"user"`
 	}
+	GetUserRequest {
+		Id int64 `path:"id"`
+	}
 	UpdateUserRequest {
 		Nickname string `json:"nickname,optional"`
 		Avatar   string `json:"avatar,optional"`
@@ -48,7 +51,6 @@ type (
 
 @server (
 	group:  user
-	prefix: /api/v1
 )
 service gateway {
 	@handler Register
@@ -58,12 +60,11 @@ service gateway {
 	post /login (LoginRequest) returns (LoginResponse)
 
 	@handler GetUser
-	get /users/:id (SearchRequest) returns (User)
+	get /users/:id (GetUserRequest) returns (User)
 }
 
 @server (
 	group:      user
-	prefix:     /api/v1
 	middleware: AuthMiddleware
 )
 service gateway {

@@ -11,6 +11,7 @@ import (
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -31,8 +32,18 @@ func NewJoinGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *JoinGro
 }
 
 func (l *JoinGroupLogic) JoinGroup(in *pb.JoinGroupRequest) (*pb.JoinGroupResponse, error) {
-	// TODO: Get userID from context or request metadata
-	userID := int64(1)
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
 	group, err := l.svcCtx.GroupModel.FindOne(l.ctx, in.GroupId)
 	if err != nil {
 		if err == model.ErrNotFound {
@@ -49,7 +60,7 @@ func (l *JoinGroupLogic) JoinGroup(in *pb.JoinGroupRequest) (*pb.JoinGroupRespon
 		}, nil
 	}
 
-	member, err := l.svcCtx.GroupMemberModel.FindMemberByGroupIdAndUserId(l.ctx, in.GroupId, userID)
+	member, err := l.svcCtx.GroupMemberModel.FindMemberByGroupIdAndUserId(l.ctx, in.GroupId, userId)
 	if err != nil && err != model.ErrNotFound {
 		return nil, status.Error(codes.Internal, "failed to check member status")
 	}
@@ -68,7 +79,7 @@ func (l *JoinGroupLogic) JoinGroup(in *pb.JoinGroupRequest) (*pb.JoinGroupRespon
 	err = l.svcCtx.SqlConn.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
 		_, err := l.svcCtx.GroupMemberModel.Insert(ctx, &model.GroupMember{
 			GroupId:  in.GroupId,
-			UserId:   userID,
+			UserId:   userId,
 			Role:     0,
 			JoinedAt: time.Now(),
 		})
@@ -89,7 +100,8 @@ func (l *JoinGroupLogic) JoinGroup(in *pb.JoinGroupRequest) (*pb.JoinGroupRespon
 			"type":      "group_event",
 			"action":    "join",
 			"group_id":  in.GroupId,
-			"user_id":   userID,
+			"user_id":   userId,
+			"intro":     in.Message,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)

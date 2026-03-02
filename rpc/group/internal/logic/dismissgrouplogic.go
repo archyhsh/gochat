@@ -10,6 +10,7 @@ import (
 	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,7 +31,23 @@ func NewDismissGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Dism
 }
 
 func (l *DismissGroupLogic) DismissGroup(in *pb.DismissGroupRequest) (*pb.DismissGroupResponse, error) {
-	err := l.svcCtx.GroupModel.Update(l.ctx, &model.Group{
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
+	ownerId, err := l.svcCtx.GroupModel.CheckOwner(l.ctx, in.GroupId)
+	if userId != ownerId {
+		return nil, status.Error(codes.PermissionDenied, "user is not the owner of the group")
+	}
+	err = l.svcCtx.GroupModel.Update(l.ctx, &model.Group{
 		Id:     in.GroupId,
 		Status: 0,
 	})
