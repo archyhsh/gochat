@@ -43,16 +43,17 @@ type (
 	}
 
 	MessageTemplate struct {
-		Id             int64          `db:"id"`
-		MsgId          string         `db:"msg_id"`
-		ConversationId string         `db:"conversation_id"`
-		SenderId       int64          `db:"sender_id"`
-		ReceiverId     int64          `db:"receiver_id"` // only for private chat
-		GroupId        int64          `db:"group_id"`    // only for group chat
-		MsgType        int64          `db:"msg_type"`    // type: 1text 2image 3file 4audio 5video 6system
-		Content        sql.NullString `db:"content"`     // JSON format content
-		Status         int64          `db:"status"`      // status: 0normal 1withdrawn
-		CreatedAt      time.Time      `db:"created_at"`
+		Id             int64     `db:"id"`
+		MsgId          string    `db:"msg_id"`
+		ConversationId string    `db:"conversation_id"`
+		SenderId       int64     `db:"sender_id"`
+		ReceiverId     int64     `db:"receiver_id"` // only for private chat
+		GroupId        int64     `db:"group_id"`    // only for group chat
+		SequenceId     int64     `db:"sequence_id"` // message sequence in conversation
+		MsgType        int64     `db:"msg_type"`    // type: 1text 2image 3file 4audio 5video 6system
+		Content        string    `db:"content"`     // JSON format content
+		Status         int64     `db:"status"`      // status: 0normal 1withdrawn
+		CreatedAt      time.Time `db:"created_at"`
 	}
 )
 
@@ -119,8 +120,8 @@ func (m *defaultMessageTemplateModel) Insert(ctx context.Context, data *MessageT
 	messageTemplateIdKey := fmt.Sprintf("%s%v", cacheMessageTemplateIdPrefix, data.Id)
 	messageTemplateMsgIdKey := fmt.Sprintf("%s%v", cacheMessageTemplateMsgIdPrefix, data.MsgId)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?)", m.table, messageTemplateRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.MsgId, data.ConversationId, data.SenderId, data.ReceiverId, data.GroupId, data.MsgType, data.Content, data.Status)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, messageTemplateRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.MsgId, data.ConversationId, data.SenderId, data.ReceiverId, data.GroupId, data.SequenceId, data.MsgType, data.Content, data.Status)
 	}, messageTemplateIdKey, messageTemplateMsgIdKey)
 	return ret, err
 }
@@ -135,7 +136,7 @@ func (m *defaultMessageTemplateModel) Update(ctx context.Context, newData *Messa
 	messageTemplateMsgIdKey := fmt.Sprintf("%s%v", cacheMessageTemplateMsgIdPrefix, data.MsgId)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, messageTemplateRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.MsgId, newData.ConversationId, newData.SenderId, newData.ReceiverId, newData.GroupId, newData.MsgType, newData.Content, newData.Status, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.MsgId, newData.ConversationId, newData.SenderId, newData.ReceiverId, newData.GroupId, newData.SequenceId, newData.MsgType, newData.Content, newData.Status, newData.Id)
 	}, messageTemplateIdKey, messageTemplateMsgIdKey)
 	return err
 }

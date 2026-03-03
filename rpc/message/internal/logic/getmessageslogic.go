@@ -41,57 +41,58 @@ func (l *GetMessagesLogic) GetMessages(in *pb.GetMessagesRequest) (*pb.GetMessag
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
 	}
-	uc, err := l.svcCtx.UserConversationModel.FindUserConversationsByUserIdAndConversationId(userId, in.ConversationId)
+
+	uc, err := l.svcCtx.UserConversationModel.FindOneByUserIdConversationId(l.ctx, userId, in.ConversationId)
 	if err != nil {
 		if err == model.ErrNotFound {
-			return nil, status.Error(codes.NotFound, "cannot find the conversation, please check the status")
+			return nil, status.Error(codes.NotFound, "Conversation not found")
 		}
-		return nil, status.Error(codes.Internal, "failed to find the conversation for the user")
+		return nil, status.Error(codes.Internal, "failed to query user conversation"+err.Error())
 	}
-	currTime := uc.LastMsgTime
+
 	remainingLimit := in.Limit
-	currentOffset := in.Offset
-	var messages []*pb.ChatMessage
-	for _ = range 50 {
-		msgTable := "message_" + currTime.Format("200601")
-		count, err := l.svcCtx.MessageTemplateModel.CountByTable(l.ctx, msgTable, in.ConversationId)
+	cursorSeq := int64(in.LastSequence)
+	currTime := uc.LastMsgTime
+	var allMessages []*pb.ChatMessage
+
+	for i := 0; i < 12; i++ {
+		tableName := "message_" + currTime.Format("200601")
+
+		msgs, err := l.svcCtx.MessageTemplateModel.FindPageByTable(l.ctx, tableName, in.ConversationId, cursorSeq, remainingLimit)
 		if err != nil {
-			// if the table does not exist, we just skip it and continue to the previous month
+			// If table doesn't exist, we skip to previous month
+			l.Debugf("Table %s not found or query failed, skipping: %v", tableName, err)
 			currTime = currTime.AddDate(0, -1, 0)
 			continue
 		}
-		if int64(currentOffset) >= count {
-			currentOffset = currentOffset - int32(count)
-		} else {
-			take := remainingLimit
-			msgPage, err := l.svcCtx.MessageTemplateModel.FindPageByTable(l.ctx, msgTable, in.ConversationId, take, currentOffset)
-			if err != nil {
-				return nil, status.Error(codes.Internal, "failed to find messages")
-			}
-			for _, msg := range msgPage {
-				messages = append(messages, &pb.ChatMessage{
-					MsgId:          msg.MsgId,
-					ConversationId: msg.ConversationId,
-					SenderId:       msg.SenderId,
-					ReceiverId:     msg.ReceiverId,
-					GroupId:        msg.GroupId,
-					MsgType:        int32(msg.MsgType),
-					Content:        msg.Content.String,
-					Status:         int32(msg.Status),
-					Timestamp:      msg.CreatedAt.Unix(),
-				})
-			}
-			remainingLimit = remainingLimit - int32(len(msgPage))
-			currentOffset = 0
+
+		for _, m := range msgs {
+			allMessages = append(allMessages, &pb.ChatMessage{
+				MsgId:          m.MsgId,
+				ConversationId: m.ConversationId,
+				SenderId:       m.SenderId,
+				ReceiverId:     m.ReceiverId,
+				GroupId:        m.GroupId,
+				MsgType:        int32(m.MsgType),
+				Content:        m.Content,
+				Status:         int32(m.Status),
+				Timestamp:      m.CreatedAt.UnixMilli(),
+				Sequence:       m.SequenceId,
+			})
 		}
+
+		remainingLimit -= int32(len(msgs))
 		if remainingLimit <= 0 {
 			break
 		}
+
+		// If we still need more messages, we start from the very end of the previous month
+		cursorSeq = 0
 		currTime = currTime.AddDate(0, -1, 0)
 	}
 
 	return &pb.GetMessagesResponse{
 		Base:     &pb.BaseResponse{Code: 200, Message: "Success"},
-		Messages: messages,
+		Messages: allMessages,
 	}, nil
 }

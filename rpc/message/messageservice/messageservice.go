@@ -15,6 +15,7 @@ import (
 
 type (
 	ChatMessage              = pb.ChatMessage
+	ChatMessageEvent         = pb.ChatMessageEvent
 	ClearUnreadRequest       = pb.ClearUnreadRequest
 	ClearUnreadResponse      = pb.ClearUnreadResponse
 	ConversationInfo         = pb.ConversationInfo
@@ -24,12 +25,15 @@ type (
 	GetMessageByIDResponse   = pb.GetMessageByIDResponse
 	GetMessagesRequest       = pb.GetMessagesRequest
 	GetMessagesResponse      = pb.GetMessagesResponse
+	SaveMessageRequest       = pb.SaveMessageRequest
+	SaveMessageResponse      = pb.SaveMessageResponse
 
 	MessageService interface {
 		GetMessages(ctx context.Context, in *GetMessagesRequest, opts ...grpc.CallOption) (*GetMessagesResponse, error)
 		GetConversations(ctx context.Context, in *GetConversationsRequest, opts ...grpc.CallOption) (*GetConversationsResponse, error)
 		ClearUnread(ctx context.Context, in *ClearUnreadRequest, opts ...grpc.CallOption) (*ClearUnreadResponse, error)
 		GetMessageByID(ctx context.Context, in *GetMessageByIDRequest, opts ...grpc.CallOption) (*GetMessageByIDResponse, error)
+		SaveMessage(ctx context.Context, in *SaveMessageRequest, opts ...grpc.CallOption) (*SaveMessageResponse, error)
 	}
 
 	defaultMessageService struct {
@@ -61,4 +65,9 @@ func (m *defaultMessageService) ClearUnread(ctx context.Context, in *ClearUnread
 func (m *defaultMessageService) GetMessageByID(ctx context.Context, in *GetMessageByIDRequest, opts ...grpc.CallOption) (*GetMessageByIDResponse, error) {
 	client := pb.NewMessageServiceClient(m.cli.Conn())
 	return client.GetMessageByID(ctx, in, opts...)
+}
+
+func (m *defaultMessageService) SaveMessage(ctx context.Context, in *SaveMessageRequest, opts ...grpc.CallOption) (*SaveMessageResponse, error) {
+	client := pb.NewMessageServiceClient(m.cli.Conn())
+	return client.SaveMessage(ctx, in, opts...)
 }

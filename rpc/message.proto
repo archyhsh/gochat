@@ -11,6 +11,7 @@ service MessageService {
     rpc GetConversations(GetConversationsRequest) returns (GetConversationsResponse);
     rpc ClearUnread(ClearUnreadRequest) returns (ClearUnreadResponse);
     rpc GetMessageByID(GetMessageByIDRequest) returns (GetMessageByIDResponse);
+    rpc SaveMessage(SaveMessageRequest) returns (SaveMessageResponse);
 }
 
 message ChatMessage {
@@ -23,6 +24,7 @@ message ChatMessage {
     string content = 7;
     int32 status = 8;
     int64 timestamp = 9;
+    int64 sequence = 10;
 }
 
 message ConversationInfo {
@@ -41,7 +43,7 @@ message ConversationInfo {
 message GetMessagesRequest {
     string conversation_id = 1;
     int32 limit = 2;
-    int32 offset = 3;
+    int32 last_sequence = 3;
 }
 
 message GetMessagesResponse {
@@ -73,4 +75,23 @@ message GetMessageByIDRequest {
 message GetMessageByIDResponse {
     BaseResponse base = 1;
     ChatMessage message = 2;
+}
+
+message ChatMessageEvent {
+    string msg_id = 1;
+    string conversation_id = 2;
+    int64 sender_id = 3;
+    int64 receiver_id = 4;
+    int64 group_id = 5;
+    int32 msg_type = 6;
+    string content = 7;
+    int64 timestamp = 8;
+    string trace_id = 9;
+}
+
+message SaveMessageRequest {
+    ChatMessageEvent message = 1;
+}
+message SaveMessageResponse {
+    BaseResponse base = 1;
 }

@@ -41,18 +41,21 @@ func (l *ClearUnreadLogic) ClearUnread(in *pb.ClearUnreadRequest) (*pb.ClearUnre
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
 	}
-	userConversation, err := l.svcCtx.UserConversationModel.FindUserConversationsByUserIdAndConversationId(userId, in.ConversationId)
+
+	conv, err := l.svcCtx.ConversationModel.FindOneByConversationId(l.ctx, in.ConversationId)
 	if err != nil {
 		if err == model.ErrNotFound {
-			return nil, status.Error(codes.NotFound, "user conversation not found")
-		} else {
-			return nil, status.Error(codes.Internal, "internal error")
+			return nil, status.Error(codes.NotFound, "Conversation not found")
 		}
+		return nil, status.Error(codes.Internal, "Internal database error")
 	}
-	userConversation.UnreadCount = 0
-	err = l.svcCtx.UserConversationModel.Update(l.ctx, userConversation)
+
+	err = l.svcCtx.UserConversationModel.UpdateReadSequence(l.ctx, userId, in.ConversationId, conv.LatestSeq)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to update user conversation")
+		return nil, status.Error(codes.Internal, "Failed to clear unread: "+err.Error())
 	}
-	return &pb.ClearUnreadResponse{Base: &pb.BaseResponse{Code: 200, Message: "success"}}, nil
+
+	return &pb.ClearUnreadResponse{
+		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
+	}, nil
 }

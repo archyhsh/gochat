@@ -47,6 +47,12 @@ type (
 		ConversationId string    `db:"conversation_id"`
 		Type           int64     `db:"type"`      // type: 1private 2group
 		TargetId       int64     `db:"target_id"` // user_id or group_id
+		LastMsgId      string    `db:"last_msg_id"`
+		LastMsgTime    time.Time `db:"last_msg_time"`
+		LastMsgContent string    `db:"last_msg_content"`
+		LastMsgType    int64     `db:"last_msg_type"`
+		LastSenderId   int64     `db:"last_sender_id"`
+		LatestSeq      int64     `db:"latest_seq"` // latest msg sequence
 		CreatedAt      time.Time `db:"created_at"`
 	}
 )
@@ -114,8 +120,8 @@ func (m *defaultConversationModel) Insert(ctx context.Context, data *Conversatio
 	conversationConversationIdKey := fmt.Sprintf("%s%v", cacheConversationConversationIdPrefix, data.ConversationId)
 	conversationIdKey := fmt.Sprintf("%s%v", cacheConversationIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?)", m.table, conversationRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.ConversationId, data.Type, data.TargetId)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, conversationRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.ConversationId, data.Type, data.TargetId, data.LastMsgId, data.LastMsgTime, data.LastMsgContent, data.LastMsgType, data.LastSenderId, data.LatestSeq)
 	}, conversationConversationIdKey, conversationIdKey)
 	return ret, err
 }
@@ -130,7 +136,7 @@ func (m *defaultConversationModel) Update(ctx context.Context, newData *Conversa
 	conversationIdKey := fmt.Sprintf("%s%v", cacheConversationIdPrefix, data.Id)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, conversationRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.ConversationId, newData.Type, newData.TargetId, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.ConversationId, newData.Type, newData.TargetId, newData.LastMsgId, newData.LastMsgTime, newData.LastMsgContent, newData.LastMsgType, newData.LastSenderId, newData.LatestSeq, newData.Id)
 	}, conversationConversationIdKey, conversationIdKey)
 	return err
 }

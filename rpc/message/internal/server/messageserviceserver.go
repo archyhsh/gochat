@@ -42,3 +42,8 @@ func (s *MessageServiceServer) GetMessageByID(ctx context.Context, in *pb.GetMes
 	l := logic.NewGetMessageByIDLogic(ctx, s.svcCtx)
 	return l.GetMessageByID(in)
 }
+
+func (s *MessageServiceServer) SaveMessage(ctx context.Context, in *pb.SaveMessageRequest) (*pb.SaveMessageResponse, error) {
+	l := logic.NewSaveMessageLogic(ctx, s.svcCtx)
+	return l.SaveMessage(in)
+}

@@ -28,6 +28,7 @@ func NewGetConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest) (*pb.GetConversationsResponse, error) {
+
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")
@@ -40,31 +41,35 @@ func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
 	}
-	userConversations, err := l.svcCtx.UserConversationModel.GetUserConversationsByUserId(userId)
+
+	userConversations, err := l.svcCtx.UserConversationModel.GetUserConversationsByUserId(l.ctx, userId)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get user conversations")
+		return nil, status.Error(codes.Internal, "failed to get user conversations: "+err.Error())
 	}
+
 	var conversations []*pb.ConversationInfo
 	for _, uc := range userConversations {
-		// skip deleted conversations
-		if uc.IsDeleted == 1 {
-			continue
+		unreadCount := int32(uc.UnreadCount)
+		if uc.LatestSeq > uc.ReadSequence {
+			unreadCount = int32(uc.LatestSeq - uc.ReadSequence)
 		}
+
 		conversations = append(conversations, &pb.ConversationInfo{
 			ConversationId:  uc.ConversationId,
 			PeerId:          uc.PeerId,
-			UnreadCount:     int32(uc.UnreadCount),
+			UnreadCount:     unreadCount,
 			LastMsgId:       uc.LastMsgId,
 			LastMessage:     uc.LastMsgContent,
 			LastMsgType:     int32(uc.LastMsgType),
 			LastSenderId:    uc.LastSenderId,
 			LastMessageTime: uc.LastMsgTime.Unix(),
-			IsTop:           (uc.IsTop == 1),
-			IsMuted:         (uc.IsMuted == 1),
+			IsTop:           int32(uc.IsTop),
+			IsMuted:         int32(uc.IsMuted),
 		})
 	}
+
 	return &pb.GetConversationsResponse{
-		Base:          &pb.BaseResponse{Code: 200, Message: "success"},
+		Base:          &pb.BaseResponse{Code: 200, Message: "Success"},
 		Conversations: conversations,
 	}, nil
 }
