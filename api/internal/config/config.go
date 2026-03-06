@@ -1,6 +1,3 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package config
 
 import (
@@ -14,7 +11,7 @@ type Config struct {
 	MessageRpc  zrpc.RpcClientConf
 	RelationRpc zrpc.RpcClientConf
 	GroupRpc    zrpc.RpcClientConf
-	Auth        struct {
+	JWT         struct {
 		JwtSecret   string
 		ExpireHours int
 	}

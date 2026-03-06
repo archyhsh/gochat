@@ -47,7 +47,7 @@ func (l *GetApplyListLogic) GetApplyList() (resp *types.ApplyListResponse, err e
 	var applies []types.ApplyInfo
 	for _, apply := range rpcResp.Applies {
 		applies = append(applies, types.ApplyInfo{
-			Id:         userId,
+			Id:         apply.Id,
 			FromUserId: apply.FromUserId,
 			Message:    apply.Message,
 			Status:     int(apply.Status),

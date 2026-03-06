@@ -9,6 +9,8 @@ option go_package = "./pb";
 
 service ChatService {
     rpc StreamMessages(stream IncomingMessage) returns (stream OutgoingMessage);
+    rpc PushToUser(PushRequest) returns (PushResponse);
+    rpc KickUser(KickRequest) returns (KickResponse);
 }
 
 message IncomingMessage {
@@ -76,4 +78,22 @@ message ErrorPayload {
 message SystemPayload {
     string content = 1;
     map<string, string> extra = 2;
+}
+
+message PushRequest {
+    int64 user_id = 1;
+    OutgoingMessage message = 2;
+}
+
+message PushResponse {
+    BaseResponse base = 1;
+}
+
+message KickRequest {
+    int64 user_id = 2;
+    string reason = 3;
+}
+
+message KickResponse {
+    BaseResponse base = 1;
 }

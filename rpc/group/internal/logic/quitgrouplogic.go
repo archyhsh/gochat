@@ -64,7 +64,7 @@ func (l *QuitGroupLogic) QuitGroup(in *pb.QuitGroupRequest) (*pb.QuitGroupRespon
 		return nil, status.Error(codes.Internal, "failed to quit group")
 	}
 
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "quit",
@@ -74,7 +74,7 @@ func (l *QuitGroupLogic) QuitGroup(in *pb.QuitGroupRequest) (*pb.QuitGroupRespon
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		_ = l.svcCtx.Config.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
 	}
 
 	return &pb.QuitGroupResponse{

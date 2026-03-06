@@ -7,11 +7,12 @@
 package pb
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -695,6 +696,198 @@ func (x *SystemPayload) GetExtra() map[string]string {
 	return nil
 }
 
+type PushRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Message       *OutgoingMessage       `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushRequest) Reset() {
+	*x = PushRequest{}
+	mi := &file_chat_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushRequest) ProtoMessage() {}
+
+func (x *PushRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushRequest.ProtoReflect.Descriptor instead.
+func (*PushRequest) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PushRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *PushRequest) GetMessage() *OutgoingMessage {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+type PushResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Base          *BaseResponse          `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PushResponse) Reset() {
+	*x = PushResponse{}
+	mi := &file_chat_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PushResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PushResponse) ProtoMessage() {}
+
+func (x *PushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PushResponse.ProtoReflect.Descriptor instead.
+func (*PushResponse) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PushResponse) GetBase() *BaseResponse {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
+type KickRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KickRequest) Reset() {
+	*x = KickRequest{}
+	mi := &file_chat_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KickRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KickRequest) ProtoMessage() {}
+
+func (x *KickRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KickRequest.ProtoReflect.Descriptor instead.
+func (*KickRequest) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *KickRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *KickRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type KickResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Base          *BaseResponse          `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KickResponse) Reset() {
+	*x = KickResponse{}
+	mi := &file_chat_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KickResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KickResponse) ProtoMessage() {}
+
+func (x *KickResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_chat_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KickResponse.ProtoReflect.Descriptor instead.
+func (*KickResponse) Descriptor() ([]byte, []int) {
+	return file_chat_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *KickResponse) GetBase() *BaseResponse {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
 var File_chat_proto protoreflect.FileDescriptor
 
 const file_chat_proto_rawDesc = "" +
@@ -759,9 +952,22 @@ const file_chat_proto_rawDesc = "" +
 	"\n" +
 	"ExtraEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012]\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"]\n" +
+	"\vPushRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x125\n" +
+	"\amessage\x18\x02 \x01(\v2\x1b.gochat.rpc.OutgoingMessageR\amessage\"<\n" +
+	"\fPushResponse\x12,\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\">\n" +
+	"\vKickRequest\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12\x16\n" +
+	"\x06reason\x18\x03 \x01(\tR\x06reason\"<\n" +
+	"\fKickResponse\x12,\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base2\xdd\x01\n" +
 	"\vChatService\x12N\n" +
-	"\x0eStreamMessages\x12\x1b.gochat.rpc.IncomingMessage\x1a\x1b.gochat.rpc.OutgoingMessage(\x010\x01B\x06Z\x04./pbb\x06proto3"
+	"\x0eStreamMessages\x12\x1b.gochat.rpc.IncomingMessage\x1a\x1b.gochat.rpc.OutgoingMessage(\x010\x01\x12?\n" +
+	"\n" +
+	"PushToUser\x12\x17.gochat.rpc.PushRequest\x1a\x18.gochat.rpc.PushResponse\x12=\n" +
+	"\bKickUser\x12\x17.gochat.rpc.KickRequest\x1a\x18.gochat.rpc.KickResponseB\x06Z\x04./pbb\x06proto3"
 
 var (
 	file_chat_proto_rawDescOnce sync.Once
@@ -776,7 +982,7 @@ func file_chat_proto_rawDescGZIP() []byte {
 }
 
 var file_chat_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_chat_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_chat_proto_goTypes = []any{
 	(IncomingMessage_Type)(0), // 0: gochat.rpc.IncomingMessage.Type
 	(OutgoingMessage_Type)(0), // 1: gochat.rpc.OutgoingMessage.Type
@@ -787,30 +993,42 @@ var file_chat_proto_goTypes = []any{
 	(*TypingPayload)(nil),     // 6: gochat.rpc.TypingPayload
 	(*ErrorPayload)(nil),      // 7: gochat.rpc.ErrorPayload
 	(*SystemPayload)(nil),     // 8: gochat.rpc.SystemPayload
-	nil,                       // 9: gochat.rpc.SystemPayload.ExtraEntry
-	(*ChatMessage)(nil),       // 10: gochat.rpc.ChatMessage
+	(*PushRequest)(nil),       // 9: gochat.rpc.PushRequest
+	(*PushResponse)(nil),      // 10: gochat.rpc.PushResponse
+	(*KickRequest)(nil),       // 11: gochat.rpc.KickRequest
+	(*KickResponse)(nil),      // 12: gochat.rpc.KickResponse
+	nil,                       // 13: gochat.rpc.SystemPayload.ExtraEntry
+	(*ChatMessage)(nil),       // 14: gochat.rpc.ChatMessage
+	(*BaseResponse)(nil),      // 15: gochat.rpc.BaseResponse
 }
 var file_chat_proto_depIdxs = []int32{
 	0,  // 0: gochat.rpc.IncomingMessage.type:type_name -> gochat.rpc.IncomingMessage.Type
-	10, // 1: gochat.rpc.IncomingMessage.chat_msg:type_name -> gochat.rpc.ChatMessage
+	14, // 1: gochat.rpc.IncomingMessage.chat_msg:type_name -> gochat.rpc.ChatMessage
 	4,  // 2: gochat.rpc.IncomingMessage.ack_msg:type_name -> gochat.rpc.AckPayload
 	5,  // 3: gochat.rpc.IncomingMessage.read_msg:type_name -> gochat.rpc.ReadPayload
 	6,  // 4: gochat.rpc.IncomingMessage.typing_msg:type_name -> gochat.rpc.TypingPayload
 	1,  // 5: gochat.rpc.OutgoingMessage.type:type_name -> gochat.rpc.OutgoingMessage.Type
-	10, // 6: gochat.rpc.OutgoingMessage.chat_msg:type_name -> gochat.rpc.ChatMessage
+	14, // 6: gochat.rpc.OutgoingMessage.chat_msg:type_name -> gochat.rpc.ChatMessage
 	4,  // 7: gochat.rpc.OutgoingMessage.ack_msg:type_name -> gochat.rpc.AckPayload
 	5,  // 8: gochat.rpc.OutgoingMessage.read_msg:type_name -> gochat.rpc.ReadPayload
 	6,  // 9: gochat.rpc.OutgoingMessage.typing_msg:type_name -> gochat.rpc.TypingPayload
 	7,  // 10: gochat.rpc.OutgoingMessage.error_msg:type_name -> gochat.rpc.ErrorPayload
 	8,  // 11: gochat.rpc.OutgoingMessage.system_msg:type_name -> gochat.rpc.SystemPayload
-	9,  // 12: gochat.rpc.SystemPayload.extra:type_name -> gochat.rpc.SystemPayload.ExtraEntry
-	2,  // 13: gochat.rpc.ChatService.StreamMessages:input_type -> gochat.rpc.IncomingMessage
-	3,  // 14: gochat.rpc.ChatService.StreamMessages:output_type -> gochat.rpc.OutgoingMessage
-	14, // [14:15] is the sub-list for method output_type
-	13, // [13:14] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	13, // 12: gochat.rpc.SystemPayload.extra:type_name -> gochat.rpc.SystemPayload.ExtraEntry
+	3,  // 13: gochat.rpc.PushRequest.message:type_name -> gochat.rpc.OutgoingMessage
+	15, // 14: gochat.rpc.PushResponse.base:type_name -> gochat.rpc.BaseResponse
+	15, // 15: gochat.rpc.KickResponse.base:type_name -> gochat.rpc.BaseResponse
+	2,  // 16: gochat.rpc.ChatService.StreamMessages:input_type -> gochat.rpc.IncomingMessage
+	9,  // 17: gochat.rpc.ChatService.PushToUser:input_type -> gochat.rpc.PushRequest
+	11, // 18: gochat.rpc.ChatService.KickUser:input_type -> gochat.rpc.KickRequest
+	3,  // 19: gochat.rpc.ChatService.StreamMessages:output_type -> gochat.rpc.OutgoingMessage
+	10, // 20: gochat.rpc.ChatService.PushToUser:output_type -> gochat.rpc.PushResponse
+	12, // 21: gochat.rpc.ChatService.KickUser:output_type -> gochat.rpc.KickResponse
+	19, // [19:22] is the sub-list for method output_type
+	16, // [16:19] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_chat_proto_init() }
@@ -840,7 +1058,7 @@ func file_chat_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_chat_proto_rawDesc), len(file_chat_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   8,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

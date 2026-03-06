@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/zeromicro/go-zero/core/stores/cache"
@@ -16,7 +15,7 @@ type (
 	// and implement the added methods in customConversationModel.
 	ConversationModel interface {
 		conversationModel
-		UpdateSeq(ctx context.Context, session sqlx.Session, conversationId string, lastMsg *MessageTemplate) (int64, error)
+		UpdateSeq(ctx context.Context, session sqlx.Session, conversationId string, convType int32, targetId int64, lastMsg *MessageTemplate) (int64, error)
 	}
 
 	customConversationModel struct {
@@ -31,33 +30,34 @@ func NewConversationModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Op
 	}
 }
 
-func (m *customConversationModel) UpdateSeq(ctx context.Context, session sqlx.Session, conversationId string, lastMsg *MessageTemplate) (int64, error) {
-	query := fmt.Sprintf("UPDATE %s SET `latest_seq` = LAST_INSERT_ID(`latest_seq` + 1), `last_msg_id` = ?, `last_msg_time` = ?, `last_msg_content` = ?, `last_msg_type` = ?, `last_sender_id` = ? WHERE `conversation_id` = ?", m.table)
-	res, err := session.ExecCtx(ctx, query,
-		lastMsg.MsgId,
-		lastMsg.CreatedAt,
-		lastMsg.Content,
-		lastMsg.MsgType,
-		lastMsg.SenderId,
-		conversationId,
+func (m *customConversationModel) UpdateSeq(ctx context.Context, session sqlx.Session, conversationId string, convType int32, targetId int64, lastMsg *MessageTemplate) (int64, error) {
+	query := fmt.Sprintf(`
+		INSERT INTO %s (
+			conversation_id, type, target_id, 
+			last_msg_id, last_msg_time, last_msg_content, 
+			last_msg_type, last_sender_id, latest_seq
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, LAST_INSERT_ID(1))
+		ON DUPLICATE KEY UPDATE 
+			latest_seq = LAST_INSERT_ID(latest_seq + 1),
+			last_msg_id = VALUES(last_msg_id),
+			last_msg_time = VALUES(last_msg_time),
+			last_msg_content = VALUES(last_msg_content),
+			last_msg_type = VALUES(last_msg_type),
+			last_sender_id = VALUES(last_sender_id)
+	`, m.table)
+
+	_, err := session.ExecCtx(ctx, query,
+		conversationId, convType, targetId,
+		lastMsg.MsgId, lastMsg.CreatedAt, lastMsg.Content,
+		lastMsg.MsgType, lastMsg.SenderId,
 	)
 	if err != nil {
 		return 0, err
 	}
-
-	affected, err := res.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	if affected == 0 {
-		return 0, sql.ErrNoRows
-	}
-
 	var newSeq int64
 	err = session.QueryRowCtx(ctx, &newSeq, "SELECT LAST_INSERT_ID()")
 	if err != nil {
 		return 0, err
 	}
-
 	return newSeq, nil
 }

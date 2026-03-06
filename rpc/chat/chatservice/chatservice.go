@@ -17,13 +17,19 @@ type (
 	AckPayload      = pb.AckPayload
 	ErrorPayload    = pb.ErrorPayload
 	IncomingMessage = pb.IncomingMessage
+	KickRequest     = pb.KickRequest
+	KickResponse    = pb.KickResponse
 	OutgoingMessage = pb.OutgoingMessage
+	PushRequest     = pb.PushRequest
+	PushResponse    = pb.PushResponse
 	ReadPayload     = pb.ReadPayload
 	SystemPayload   = pb.SystemPayload
 	TypingPayload   = pb.TypingPayload
 
 	ChatService interface {
 		StreamMessages(ctx context.Context, opts ...grpc.CallOption) (pb.ChatService_StreamMessagesClient, error)
+		PushToUser(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*PushResponse, error)
+		KickUser(ctx context.Context, in *KickRequest, opts ...grpc.CallOption) (*KickResponse, error)
 	}
 
 	defaultChatService struct {
@@ -40,4 +46,14 @@ func NewChatService(cli zrpc.Client) ChatService {
 func (m *defaultChatService) StreamMessages(ctx context.Context, opts ...grpc.CallOption) (pb.ChatService_StreamMessagesClient, error) {
 	client := pb.NewChatServiceClient(m.cli.Conn())
 	return client.StreamMessages(ctx, opts...)
+}
+
+func (m *defaultChatService) PushToUser(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*PushResponse, error) {
+	client := pb.NewChatServiceClient(m.cli.Conn())
+	return client.PushToUser(ctx, in, opts...)
+}
+
+func (m *defaultChatService) KickUser(ctx context.Context, in *KickRequest, opts ...grpc.CallOption) (*KickResponse, error) {
+	client := pb.NewChatServiceClient(m.cli.Conn())
+	return client.KickUser(ctx, in, opts...)
 }

@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -39,8 +40,21 @@ func (m *customUserModel) SearchUsersByName(ctx context.Context, name string) ([
 }
 
 func (m *customUserModel) SearchUsersByIds(ctx context.Context, ids []int64) ([]*User, error) {
-	query := fmt.Sprintf("SELECT %s FROM %s WHERE `id` IN (?) AND `status` = 1", userRows, m.table)
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM %s WHERE `id` IN (%s) AND `status` = 1",
+		userRows, m.table, strings.Join(placeholders, ","))
+
 	var resp []*User
-	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, ids)
+	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, args...)
 	return resp, err
 }

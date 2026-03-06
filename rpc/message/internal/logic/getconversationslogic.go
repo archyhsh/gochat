@@ -28,7 +28,6 @@ func NewGetConversationsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest) (*pb.GetConversationsResponse, error) {
-
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")
@@ -44,7 +43,8 @@ func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest)
 
 	userConversations, err := l.svcCtx.UserConversationModel.GetUserConversationsByUserId(l.ctx, userId)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to get user conversations: "+err.Error())
+		l.Errorf("Failed to get conversations for user %d: %v", userId, err)
+		return nil, status.Error(codes.Internal, "Internal database error")
 	}
 
 	var conversations []*pb.ConversationInfo
@@ -58,11 +58,11 @@ func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest)
 			ConversationId:  uc.ConversationId,
 			PeerId:          uc.PeerId,
 			UnreadCount:     unreadCount,
-			LastMsgId:       uc.LastMsgId,
-			LastMessage:     uc.LastMsgContent,
-			LastMsgType:     int32(uc.LastMsgType),
-			LastSenderId:    uc.LastSenderId,
-			LastMessageTime: uc.LastMsgTime.Unix(),
+			LastMsgId:       uc.GlobalLastMsgId,
+			LastMessage:     uc.GlobalLastMsgContent,
+			LastMsgType:     int32(uc.GlobalLastMsgType),
+			LastSenderId:    uc.GlobalLastSenderId,
+			LastMessageTime: uc.GlobalLastMsgTime.UnixMilli(),
 			IsTop:           int32(uc.IsTop),
 			IsMuted:         int32(uc.IsMuted),
 		})

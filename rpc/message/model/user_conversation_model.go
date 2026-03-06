@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -25,10 +26,15 @@ type (
 		*defaultUserConversationModel
 	}
 
-	// UserConversationWithSeq includes the latest sequence from the global conversation table
+	// UserConversationWithSeq includes shared fields from the global conversation table
 	UserConversationWithSeq struct {
 		UserConversation
-		LatestSeq int64 `db:"latest_seq"`
+		GlobalLastMsgId      string    `db:"global_last_msg_id"`
+		GlobalLastMsgTime    time.Time `db:"global_last_msg_time"`
+		GlobalLastMsgContent string    `db:"global_last_msg_content"`
+		GlobalLastMsgType    int64     `db:"global_last_msg_type"`
+		GlobalLastSenderId   int64     `db:"global_last_sender_id"`
+		LatestSeq            int64     `db:"latest_seq"`
 	}
 )
 
@@ -41,11 +47,18 @@ func NewUserConversationModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cach
 
 func (m *customUserConversationModel) GetUserConversationsByUserId(ctx context.Context, userId int64) ([]*UserConversationWithSeq, error) {
 	query := fmt.Sprintf(`
-		SELECT uc.*, c.latest_seq 
+		SELECT 
+			uc.*, 
+			c.last_msg_id as global_last_msg_id,
+			c.last_msg_time as global_last_msg_time,
+			c.last_msg_content as global_last_msg_content,
+			c.last_msg_type as global_last_msg_type,
+			c.last_sender_id as global_last_sender_id,
+			c.latest_seq 
 		FROM %s uc 
 		INNER JOIN conversation c ON uc.conversation_id = c.conversation_id 
 		WHERE uc.user_id = ? AND uc.is_deleted = 0
-		ORDER BY uc.is_top DESC, uc.last_msg_time DESC
+		ORDER BY uc.is_top DESC, c.last_msg_time DESC
 	`, m.table)
 	var resp []*UserConversationWithSeq
 	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
@@ -57,8 +70,8 @@ func (m *customUserConversationModel) UpdateNewPrivateMsg(ctx context.Context, s
 		INSERT INTO %s (
 			user_id, conversation_id, peer_id, 
 			last_msg_id, last_msg_time, last_msg_content, 
-			last_msg_type, last_sender_id, unread_count, is_deleted
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+			last_msg_type, last_sender_id, unread_count, is_deleted, read_sequence
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
 		ON DUPLICATE KEY UPDATE 
 			last_msg_id = VALUES(last_msg_id),
 			last_msg_time = VALUES(last_msg_time),

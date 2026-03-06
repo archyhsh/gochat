@@ -31,21 +31,24 @@ func (l *SearchUsersLogic) SearchUsers(in *pb.SearchUsersRequest) (*pb.SearchUse
 			Base: &pb.BaseResponse{Code: 200, Message: "Success"},
 		}, nil
 	}
-
 	users, err := l.svcCtx.UserModel.SearchUsersByName(l.ctx, in.Keyword)
 	if err != nil {
 		l.Errorf("SearchUsers failed: keyword=%s, error=%v", in.Keyword, err)
 		return nil, status.Error(codes.Internal, "failed to search users")
 	}
-
+	l.Infof("start making summaries, total: %d", len(users))
 	var userSummaries []*pb.User
 	for _, u := range users {
 		userSummaries = append(userSummaries, &pb.User{
+			Id:       u.Id,
 			Nickname: u.Nickname,
 			Avatar:   u.Avatar,
+			Phone:    u.Phone,
+			Email:    u.Email,
+			Gender:   int32(u.Gender),
 		})
 	}
-
+	l.Infof("finished making summaries, total: %d", len(userSummaries))
 	return &pb.SearchUsersResponse{
 		Base:  &pb.BaseResponse{Code: 200, Message: "Success"},
 		Users: userSummaries,

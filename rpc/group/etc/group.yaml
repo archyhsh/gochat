@@ -2,11 +2,18 @@ Name: group.rpc
 ListenOn: 0.0.0.0:8082
 Etcd:
   Hosts:
-  - 127.0.0.1:2379
+    - 127.0.0.1:2379
   Key: group.rpc
+
+DB:
+  DataSource: gochat:gochat123@tcp(127.0.0.1:3306)/gochat?charset=utf8mb4&parseTime=true&loc=UTC
+
+Cache:
+  - Host: 127.0.0.1:6379
+    Pass: ""
+    Type: node
 
 Kafka:
   Brokers:
-    - localhost:9092
-  Topics:
-    Group: group-topic
+    - 127.0.0.1:9092
+  Topic: group-topic

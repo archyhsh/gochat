@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/message/model"
@@ -42,17 +43,27 @@ func (l *GetMessagesLogic) GetMessages(in *pb.GetMessagesRequest) (*pb.GetMessag
 		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
 	}
 
+	var currTime time.Time
 	uc, err := l.svcCtx.UserConversationModel.FindOneByUserIdConversationId(l.ctx, userId, in.ConversationId)
 	if err != nil {
 		if err == model.ErrNotFound {
-			return nil, status.Error(codes.NotFound, "Conversation not found")
+			_, errGlob := l.svcCtx.ConversationModel.FindOneByConversationId(l.ctx, in.ConversationId)
+			if errGlob != nil {
+				if errGlob == model.ErrNotFound {
+					return nil, status.Error(codes.NotFound, "Conversation not found")
+				}
+				return nil, status.Error(codes.Internal, "failed to query global conversation")
+			}
+			currTime = time.Now()
+		} else {
+			return nil, status.Error(codes.Internal, "failed to query user conversation: "+err.Error())
 		}
-		return nil, status.Error(codes.Internal, "failed to query user conversation"+err.Error())
+	} else {
+		currTime = uc.LastMsgTime
 	}
 
 	remainingLimit := in.Limit
 	cursorSeq := int64(in.LastSequence)
-	currTime := uc.LastMsgTime
 	var allMessages []*pb.ChatMessage
 
 	for i := 0; i < 12; i++ {
@@ -60,8 +71,6 @@ func (l *GetMessagesLogic) GetMessages(in *pb.GetMessagesRequest) (*pb.GetMessag
 
 		msgs, err := l.svcCtx.MessageTemplateModel.FindPageByTable(l.ctx, tableName, in.ConversationId, cursorSeq, remainingLimit)
 		if err != nil {
-			// If table doesn't exist, we skip to previous month
-			l.Debugf("Table %s not found or query failed, skipping: %v", tableName, err)
 			currTime = currTime.AddDate(0, -1, 0)
 			continue
 		}
@@ -86,7 +95,6 @@ func (l *GetMessagesLogic) GetMessages(in *pb.GetMessagesRequest) (*pb.GetMessag
 			break
 		}
 
-		// If we still need more messages, we start from the very end of the previous month
 		cursorSeq = 0
 		currTime = currTime.AddDate(0, -1, 0)
 	}

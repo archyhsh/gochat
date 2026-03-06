@@ -5,6 +5,7 @@ package middleware
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 
@@ -38,11 +39,13 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 
 		claims, err := m.jwtManager.ParseToken(parts[1])
 		if err != nil {
-			response.Unauthorized(w, "Invalid or Expired Token")
+			log.Printf("AuthMiddleware: Token validation failed: %v", err)
+			response.Unauthorized(w, "Invalid or Expired Token: "+err.Error())
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "userId", claims.UserID)
+		// Unified key name: user_id
+		ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
 		ctx = context.WithValue(ctx, "username", claims.Username)
 
 		next(w, r.WithContext(ctx))

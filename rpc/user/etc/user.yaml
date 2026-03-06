@@ -5,12 +5,20 @@ Etcd:
   - 127.0.0.1:2379
   Key: user.rpc
 
+DB:
+  DataSource: gochat:gochat123@tcp(127.0.0.1:3306)/gochat?charset=utf8mb4&parseTime=true&loc=UTC
+
+Cache:
+  - Host: 127.0.0.1:6379
+    Pass: ""
+    Type: node
+
 Kafka:
   Brokers:
-    - localhost:9091
+    - 127.0.0.1:9092
   Topics:
     Group: user-topic
 
-Auth:
-  AccessSecret: ${JWT_SECRET}
-  AccessExpire: ${JWT_EXPIRE}
+JWT:
+  AccessSecret: ${JWT_SECRET:gochat-default-secret-key}
+  AccessExpire: 604800

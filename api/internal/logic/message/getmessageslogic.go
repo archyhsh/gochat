@@ -36,14 +36,13 @@ func (l *GetMessagesLogic) GetMessages(req *types.GetMessagesRequest) (resp *typ
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "user not login")
 	}
-	// send userId to backend RPC via gRPC Metadata
 	md := metadata.Pairs("user_id", strconv.FormatInt(userId, 10))
 	ctx := metadata.NewOutgoingContext(l.ctx, md)
 
 	rpcResp, err := l.svcCtx.MessageRpc.GetMessages(ctx, &pb.GetMessagesRequest{
 		ConversationId: req.ConversationId,
 		Limit:          int32(req.Limit),
-		Offset:         int32(req.Offset),
+		LastSequence:   int32(req.LastSequence),
 	})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "fail to call MessageRpc func GetMessages: "+err.Error())

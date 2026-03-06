@@ -26,7 +26,7 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	jwtManager := auth.NewJWTManager(c.Auth.JwtSecret, c.Auth.ExpireHours*3600)
+	jwtManager := auth.NewJWTManager(c.JWT.JwtSecret, c.JWT.ExpireHours)
 	return &ServiceContext{
 		Config:         c,
 		AuthMiddleware: middleware.NewAuthMiddleware(jwtManager).Handle,

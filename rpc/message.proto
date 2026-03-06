@@ -87,6 +87,7 @@ message ChatMessageEvent {
     string content = 7;
     int64 timestamp = 8;
     string trace_id = 9;
+    repeated int64 target_ids = 10; // Explicitly notify these users to initialize bookmarks
 }
 
 message SaveMessageRequest {

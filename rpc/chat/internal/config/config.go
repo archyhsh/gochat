@@ -11,6 +11,12 @@ type Config struct {
 	DB struct {
 		DataSource string
 	}
-	Cache    cache.CacheConf
-	Producer *kafka.Producer
+	Cache         cache.CacheConf
+	Producer      *kafka.Producer
+	RelationRpc   zrpc.RpcClientConf
+	GroupRpc      zrpc.RpcClientConf
+	Redis_Session struct {
+		Host string
+		Pass string
+	}
 }

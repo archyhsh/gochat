@@ -59,7 +59,7 @@ func (l *GetFriendListLogic) GetFriendList(in *pb.GetFriendListRequest) (*pb.Get
 		UserIds: friendIds,
 	})
 	if err != nil {
-		l.Errorf("批量拉取用户资料失败: %v", err)
+		l.Errorf("error get friendlist: %v", err)
 		var friendList []*pb.UserAvatar
 		for _, u := range userResp.Users {
 			friendList = append(friendList, &pb.UserAvatar{

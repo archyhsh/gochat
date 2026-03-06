@@ -2,6 +2,9 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/relation/internal/svc"
@@ -40,6 +43,19 @@ func (l *HandleApplyLogic) HandleApply(in *pb.HandleApplyRequest) (*pb.HandleApp
 		err = l.svcCtx.FriendshipModel.InsertFriendshipByUserIdFriendId(l.ctx, apply.FromUserId, apply.ToUserId)
 		if err != nil {
 			return nil, err
+		}
+
+		if l.svcCtx.Producer != nil {
+			event := map[string]interface{}{
+				"type":         "friend_event",
+				"action":       "accept",
+				"from_user_id": apply.FromUserId,
+				"to_user_id":   apply.ToUserId,
+				"timestamp":    time.Now().Unix(),
+			}
+			data, _ := json.Marshal(event)
+			key := fmt.Sprintf("friend_%d_%d", apply.FromUserId, apply.ToUserId)
+			_ = l.svcCtx.Producer.Send([]byte(key), data)
 		}
 	} else {
 		apply.Status = 2

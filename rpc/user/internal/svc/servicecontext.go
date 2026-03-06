@@ -20,6 +20,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Config:          c,
 		UserModel:       model.NewUserModel(sqlConn, c.Cache),
 		UserDeviceModel: model.NewUserDeviceModel(sqlConn, c.Cache),
-		JwtManager:      auth.NewJWTManager(c.Auth.AccessSecret, int(c.Auth.AccessExpire)/3600),
+		JwtManager:      auth.NewJWTManager(c.JWT.AccessSecret, int(c.JWT.AccessExpire)/3600),
 	}
 }

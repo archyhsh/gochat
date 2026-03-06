@@ -42,18 +42,20 @@ func (l *GetApplyListLogic) GetApplyList(in *pb.GetApplyListRequest) (*pb.GetApp
 		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
 	}
 
-	groups, err := l.svcCtx.FriendApplyModel.FindApplyListByToUserId(l.ctx, userId)
+	applies, err := l.svcCtx.FriendApplyModel.FindApplyListByToUserId(l.ctx, userId)
 	if err != nil && model.ErrNotFound != err {
 		return nil, status.Error(codes.Internal, "Failed to get apply list")
 	}
-	if model.ErrNotFound == err {
-		return &pb.GetApplyListResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}, Applies: []*pb.FriendApply{}}, nil
-	}
+
 	var FriendApplyList []*pb.FriendApply
-	for _, group := range groups {
+	for _, a := range applies {
 		FriendApplyList = append(FriendApplyList, &pb.FriendApply{
-			Message:   group.Message,
-			CreatedAt: group.CreatedAt.Unix(),
+			Id:         a.Id,
+			FromUserId: a.FromUserId,
+			ToUserId:   a.ToUserId,
+			Message:    a.Message,
+			Status:     int32(a.Status),
+			CreatedAt:  a.CreatedAt.Unix(),
 		})
 	}
 	return &pb.GetApplyListResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}, Applies: FriendApplyList}, nil

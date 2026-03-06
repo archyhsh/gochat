@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"github.com/archyhsh/gochat/pkg/kafka"
 	"github.com/archyhsh/gochat/rpc/group/internal/config"
 	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
@@ -12,15 +13,18 @@ type ServiceContext struct {
 	GroupModel        model.GroupModel
 	GroupMemberModel  model.GroupMemberModel
 	GroupRequestModel model.GroupRequestModel
+	Producer          *kafka.Producer
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	sqlConn := sqlx.NewMysql(c.DB.DataSource)
+	p, _ := kafka.NewProducer(c.Kafka.Brokers, c.Kafka.Topic)
 	return &ServiceContext{
 		Config:            c,
 		SqlConn:           sqlConn,
 		GroupModel:        model.NewGroupModel(sqlConn, c.Cache),
 		GroupMemberModel:  model.NewGroupMemberModel(sqlConn, c.Cache),
 		GroupRequestModel: model.NewGroupRequestModel(sqlConn, c.Cache),
+		Producer:          p,
 	}
 }

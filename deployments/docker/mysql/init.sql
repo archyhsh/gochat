@@ -105,9 +105,9 @@ CREATE TABLE IF NOT EXISTS `conversation` (
   `target_id` BIGINT NOT NULL COMMENT '目标ID (user_id或group_id)',
   `last_msg_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '最后一条消息ID',
   `last_msg_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '最后一条消息时间',
-  `last_msg_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `last_msg_content` TEXT NOT NULL,
   `last_msg_type` TINYINT NOT NULL DEFAULT 0,
+  `last_sender_id` BIGINT NOT NULL DEFAULT 0,
   `latest_seq` BIGINT NOT NULL DEFAULT 0 COMMENT '最新消息序列号',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -156,11 +156,9 @@ CREATE TABLE IF NOT EXISTS `message_template` (
   UNIQUE KEY `uk_msg_id` (`msg_id`),
   KEY `idx_conv_created` (`conversation_id`, `created_at` DESC),
   KEY `idx_sender_id` (`sender_id`),
-  KEY `idx_created_at` (`created_at`)
-  KEY `idx_conv_seq` (`group_id`, `sequence_id`),
+  KEY `idx_created_at` (`created_at`),
+  KEY `idx_conv_seq` (`conversation_id`, `sequence_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息表模板';
-
-CREATE TABLE IF NOT EXISTS `message_202602` LIKE `message_template`;
 
 
 CREATE TABLE IF NOT EXISTS `message_read` (

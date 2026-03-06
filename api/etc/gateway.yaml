@@ -3,10 +3,18 @@ Host: 0.0.0.0
 Port: 8888
 
 UserRpc: 
-  Endpoints: http://localhost:8081
-GroupRpc:
-  Endpoints: http://localhost:8082
-RelationRpc:
-  Endpoints: http://localhost:8083
+  Endpoints:
+    - 127.0.0.1:8081
 MessageRpc:
-  Endpoints: http://localhost:8084
+  Endpoints:
+    - 127.0.0.1:8084
+RelationRpc:
+  Endpoints:
+    - 127.0.0.1:8083
+GroupRpc:
+  Endpoints:
+    - 127.0.0.1:8082
+
+JWT:
+  JwtSecret: ${JWT_SECRET:gochat-default-secret-key}
+  ExpireHours: 72

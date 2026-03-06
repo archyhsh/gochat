@@ -3,7 +3,9 @@ package svc
 import (
 	"github.com/archyhsh/gochat/rpc/message/internal/config"
 	"github.com/archyhsh/gochat/rpc/message/model"
+	"github.com/archyhsh/gochat/rpc/user/userservice"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type ServiceContext struct {
@@ -13,6 +15,7 @@ type ServiceContext struct {
 	MessageReadModel      model.MessageReadModel
 	MessageTemplateModel  model.MessageTemplateModel
 	UserConversationModel model.UserConversationModel
+	UserRpc               userservice.UserService
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -24,5 +27,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		MessageReadModel:      model.NewMessageReadModel(sqlConn, c.Cache),
 		MessageTemplateModel:  model.NewMessageTemplateModel(sqlConn, c.Cache),
 		UserConversationModel: model.NewUserConversationModel(sqlConn, c.Cache),
+		UserRpc:               userservice.NewUserService(zrpc.MustNewClient(c.UserRpc)),
 	}
 }

@@ -3,11 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	_ "time/tzdata"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/user/internal/config"
 	"github.com/archyhsh/gochat/rpc/user/internal/server"
 	"github.com/archyhsh/gochat/rpc/user/internal/svc"
+	"github.com/joho/godotenv"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -20,6 +23,14 @@ var configFile = flag.String("f", "etc/user.yaml", "the config file")
 
 func main() {
 	flag.Parse()
+
+	// Load .env file from common locations
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Printf("Warning: .env file not loaded: %v", err)
+	} else {
+		log.Printf("Success: .env file loaded")
+	}
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)

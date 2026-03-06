@@ -71,7 +71,7 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 		return nil, status.Error(codes.Internal, "failed to update announcement")
 	}
 
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "updateAnnouncement",
@@ -80,7 +80,7 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		err = l.svcCtx.Config.Producer.Send([]byte(key), data)
+		err = l.svcCtx.Producer.Send([]byte(key), data)
 		if err != nil {
 			l.Errorf("Failed to send Kafka event for UpdateAnnouncement: %v", err)
 		}

@@ -5,6 +5,8 @@
 package server
 
 import (
+	"context"
+
 	"github.com/archyhsh/gochat/rpc/chat/internal/logic"
 	"github.com/archyhsh/gochat/rpc/chat/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
@@ -24,4 +26,14 @@ func NewChatServiceServer(svcCtx *svc.ServiceContext) *ChatServiceServer {
 func (s *ChatServiceServer) StreamMessages(stream pb.ChatService_StreamMessagesServer) error {
 	l := logic.NewStreamMessagesLogic(stream.Context(), s.svcCtx)
 	return l.StreamMessages(stream)
+}
+
+func (s *ChatServiceServer) PushToUser(ctx context.Context, in *pb.PushRequest) (*pb.PushResponse, error) {
+	l := logic.NewPushToUserLogic(ctx, s.svcCtx)
+	return l.PushToUser(in)
+}
+
+func (s *ChatServiceServer) KickUser(ctx context.Context, in *pb.KickRequest) (*pb.KickResponse, error) {
+	l := logic.NewKickUserLogic(ctx, s.svcCtx)
+	return l.KickUser(in)
 }

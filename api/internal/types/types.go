@@ -87,7 +87,7 @@ type GetMessageByIdRequest struct {
 type GetMessagesRequest struct {
 	ConversationId string `form:"conversation_id"`
 	Limit          int    `form:"limit,default=20"`
-	Offset         int    `form:"offset,default=0"`
+	LastSequence   int64  `form:"last_sequence,optional"`
 }
 
 type GetUserRequest struct {

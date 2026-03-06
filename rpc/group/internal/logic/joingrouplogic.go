@@ -95,7 +95,7 @@ func (l *JoinGroupLogic) JoinGroup(in *pb.JoinGroupRequest) (*pb.JoinGroupRespon
 		return nil, status.Error(codes.Internal, "failed to join group")
 	}
 
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "join",
@@ -106,7 +106,7 @@ func (l *JoinGroupLogic) JoinGroup(in *pb.JoinGroupRequest) (*pb.JoinGroupRespon
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		_ = l.svcCtx.Config.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
 	}
 
 	return &pb.JoinGroupResponse{

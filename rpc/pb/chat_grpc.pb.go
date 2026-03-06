@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	ChatService_StreamMessages_FullMethodName = "/gochat.rpc.ChatService/StreamMessages"
+	ChatService_PushToUser_FullMethodName     = "/gochat.rpc.ChatService/PushToUser"
+	ChatService_KickUser_FullMethodName       = "/gochat.rpc.ChatService/KickUser"
 )
 
 // ChatServiceClient is the client API for ChatService service.
@@ -27,6 +29,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ChatServiceClient interface {
 	StreamMessages(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[IncomingMessage, OutgoingMessage], error)
+	PushToUser(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*PushResponse, error)
+	KickUser(ctx context.Context, in *KickRequest, opts ...grpc.CallOption) (*KickResponse, error)
 }
 
 type chatServiceClient struct {
@@ -50,11 +54,33 @@ func (c *chatServiceClient) StreamMessages(ctx context.Context, opts ...grpc.Cal
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_StreamMessagesClient = grpc.BidiStreamingClient[IncomingMessage, OutgoingMessage]
 
+func (c *chatServiceClient) PushToUser(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*PushResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PushResponse)
+	err := c.cc.Invoke(ctx, ChatService_PushToUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *chatServiceClient) KickUser(ctx context.Context, in *KickRequest, opts ...grpc.CallOption) (*KickResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(KickResponse)
+	err := c.cc.Invoke(ctx, ChatService_KickUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ChatServiceServer is the server API for ChatService service.
 // All implementations must embed UnimplementedChatServiceServer
 // for forward compatibility.
 type ChatServiceServer interface {
 	StreamMessages(grpc.BidiStreamingServer[IncomingMessage, OutgoingMessage]) error
+	PushToUser(context.Context, *PushRequest) (*PushResponse, error)
+	KickUser(context.Context, *KickRequest) (*KickResponse, error)
 	mustEmbedUnimplementedChatServiceServer()
 }
 
@@ -67,6 +93,12 @@ type UnimplementedChatServiceServer struct{}
 
 func (UnimplementedChatServiceServer) StreamMessages(grpc.BidiStreamingServer[IncomingMessage, OutgoingMessage]) error {
 	return status.Errorf(codes.Unimplemented, "method StreamMessages not implemented")
+}
+func (UnimplementedChatServiceServer) PushToUser(context.Context, *PushRequest) (*PushResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PushToUser not implemented")
+}
+func (UnimplementedChatServiceServer) KickUser(context.Context, *KickRequest) (*KickResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KickUser not implemented")
 }
 func (UnimplementedChatServiceServer) mustEmbedUnimplementedChatServiceServer() {}
 func (UnimplementedChatServiceServer) testEmbeddedByValue()                     {}
@@ -96,13 +128,58 @@ func _ChatService_StreamMessages_Handler(srv interface{}, stream grpc.ServerStre
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ChatService_StreamMessagesServer = grpc.BidiStreamingServer[IncomingMessage, OutgoingMessage]
 
+func _ChatService_PushToUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PushRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).PushToUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_PushToUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).PushToUser(ctx, req.(*PushRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ChatService_KickUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KickRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ChatServiceServer).KickUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ChatService_KickUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ChatServiceServer).KickUser(ctx, req.(*KickRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ChatService_ServiceDesc is the grpc.ServiceDesc for ChatService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChatService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gochat.rpc.ChatService",
 	HandlerType: (*ChatServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PushToUser",
+			Handler:    _ChatService_PushToUser_Handler,
+		},
+		{
+			MethodName: "KickUser",
+			Handler:    _ChatService_KickUser_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "StreamMessages",

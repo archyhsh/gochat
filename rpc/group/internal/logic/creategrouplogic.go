@@ -78,17 +78,17 @@ func (l *CreateGroupLogic) CreateGroup(in *pb.CreateGroupRequest) (*pb.CreateGro
 		return nil, status.Error(codes.Internal, "failed to create group")
 	}
 
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "create",
 			"group_id":  groupId,
-			"owner_id":  ownerId,
+			"user_id":   ownerId,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(groupId, 10)
-		_ = l.svcCtx.Config.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
 	}
 
 	return &pb.CreateGroupResponse{

@@ -68,17 +68,17 @@ func (l *KickGroupMemberLogic) KickGroupMember(in *pb.KickGroupMemberRequest) (*
 		l.Errorf("Failed to kick member: %v", err)
 		return nil, status.Error(codes.Internal, "failed to kick member")
 	}
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "kick",
 			"group_id":  in.GroupId,
-			"member_id": in.MemberId,
+			"user_id":   in.MemberId,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		_ = l.svcCtx.Config.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
 	}
 
 	return &pb.KickGroupMemberResponse{
