@@ -96,7 +96,6 @@ class GoChatApp {
         this.currentView = view;
         document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
         
-        // Update Search Placeholder based on view
         const searchInput = document.getElementById('global-search');
         if (searchInput) {
             searchInput.value = '';
@@ -269,7 +268,7 @@ class GoChatApp {
                 <div class="list-item-info">
                     <div class="list-item-title">
                         <span class="list-item-name">${g.name}</span>
-                        <button class="action-btn-small" onclick="event.stopPropagation(); window.app.startGroupChatById(id, '${g.name}')">Chat</button>
+                        <button class="action-btn-small" onclick="event.stopPropagation(); window.app.startGroupChatById(${g.id}, '${g.name}')">Chat</button>
                     </div>
                     <div class="list-item-preview">Group</div>
                 </div>
@@ -406,7 +405,6 @@ class GoChatApp {
             this.requests = data.applies || [];
             this.updateRequestBadge();
             
-            // Try to resolve nicknames for the requesters
             for (let req of this.requests) {
                 if (!this.knownUsers[req.from_user_id]) {
                     this.resolveUserInfo(req.from_user_id);
@@ -478,20 +476,20 @@ class GoChatApp {
             const group = this.groups.find(g => g.id === groupId);
             const isOwner = group && group.owner_id === this.user.id;
 
-            panel.innerHTML = '<div style="padding: 10px; font-weight: bold; font-size: 12px; color: var(--text-muted);">MEMBERS</div>';
+            panel.innerHTML = '<div style="padding: 10px 20px; font-weight: bold; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--border-color)">MEMBERS</div>';
             members.forEach(m => {
                 const el = document.createElement('div');
                 el.className = 'list-item';
-                el.style = "padding: 8px 20px;";
+                el.style = "padding: 8px 20px; border-bottom: none;";
                 const roleText = m.role === 2 ? 'Owner' : (m.role === 1 ? 'Admin' : '');
                 
                 el.innerHTML = `
-                    <div class="avatar-circle" style="width: 24px; height: 24px; font-size: 10px;">${m.nickname.charAt(0).toUpperCase()}</div>
+                    <div class="avatar-circle" style="width: 28px; height: 28px; font-size: 11px; border-radius: 6px;">${m.nickname.charAt(0).toUpperCase()}</div>
                     <div class="list-item-info">
                         <div class="list-item-title">
-                            <span class="list-item-name" style="font-size: 13px;">${m.nickname} ${roleText ? `<span style="color: var(--warning-color); font-size: 10px;">(${roleText})</span>` : ''}</span>
+                            <span class="list-item-name" style="font-size: 13px;">${m.nickname} ${roleText ? `<span style="color: var(--warning-color); font-size: 10px; font-weight: 500;">(${roleText})</span>` : ''}</span>
                             ${isOwner && m.user_id !== this.user.id ? `
-                                <button class="reject-btn" style="padding: 2px 6px; font-size: 10px;" onclick="event.stopPropagation(); window.app.handleKick(${groupId}, ${m.user_id})">Kick</button>
+                                <button class="reject-btn" style="padding: 2px 6px; font-size: 10px; font-weight: 600;" onclick="event.stopPropagation(); window.app.handleKick(${groupId}, ${m.user_id})">Kick</button>
                             ` : ''}
                         </div>
                     </div>
@@ -508,8 +506,8 @@ class GoChatApp {
         if (!confirm('Are you sure you want to kick this member?')) return;
         try {
             await this.request(`/groups/${groupId}/kick/${userId}`, { method: 'POST' });
-            alert('Member kicked');
             this.toggleMemberList(); // Refresh panel
+            this.toggleMemberList();
         } catch (err) {
             alert('Failed to kick: ' + err.message);
         }
@@ -519,26 +517,37 @@ class GoChatApp {
         if (!this.currentChat || !this.currentChat.conversation_id.startsWith('group_')) return;
         const groupId = this.currentChat.peer_id;
         
-        // Show a list of friends to invite
+        // Step 1: Pre-fetch current group members to check status
+        const [friendsData, membersData] = await Promise.all([
+            this.request('/friends'),
+            this.request(`/groups/${groupId}/members`)
+        ]);
+        
+        const memberIds = new Set((membersData.members || []).map(m => m.user_id));
+        const friends = friendsData.friends || [];
+
+        // Step 2: Show list of friends with status awareness
         const container = document.getElementById('list-content');
-        container.innerHTML = '<div style="padding: 16px; font-weight: bold;">Select friend to invite:</div>';
+        container.innerHTML = '<div style="padding: 16px 20px; font-weight: 700; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border-color);">SELECT FRIEND TO INVITE</div>';
         
-        const friendsToInvite = this.friends; // In real app, filter those already in group
-        
-        if (friendsToInvite.length === 0) {
+        if (friends.length === 0) {
             container.innerHTML += '<div class="empty-state"><p>No friends available to invite</p></div>';
             return;
         }
 
-        friendsToInvite.forEach(f => {
+        friends.forEach(f => {
+            const isAlreadyIn = memberIds.has(f.user_id);
             const el = document.createElement('div');
             el.className = 'list-item';
             el.innerHTML = `
-                <div class="avatar-circle">${f.nickname.charAt(0).toUpperCase()}</div>
+                <div class="avatar-circle" style="border-radius: 6px;">${f.nickname.charAt(0).toUpperCase()}</div>
                 <div class="list-item-info">
                     <div class="list-item-title">
                         <span class="list-item-name">${f.remark || f.nickname}</span>
-                        <button class="prominent-add-btn" onclick="event.stopPropagation(); window.app.executeInvite(${groupId}, ${f.user_id})">Invite</button>
+                        ${isAlreadyIn ? 
+                            `<span class="list-item-time">Joined</span>` : 
+                            `<button class="prominent-add-btn" onclick="event.stopPropagation(); window.app.executeInvite(${groupId}, ${f.user_id})">Invite</button>`
+                        }
                     </div>
                 </div>
             `;
@@ -553,10 +562,33 @@ class GoChatApp {
                 body: JSON.stringify({ member_ids: [userId] })
             });
             alert('Invitation sent!');
-            this.loadInitialData();
             this.switchSidebarView('chats');
         } catch (err) {
             alert('Failed to invite: ' + err.message);
+        }
+    }
+
+    async handleDismissGroup(groupId) {
+        if (!confirm('WARNING: Are you sure you want to DISMISS this group? This action cannot be undone.')) return;
+        try {
+            await this.request(`/groups/${groupId}`, { method: 'DELETE' });
+            alert('Group dismissed');
+            this.handleLogout(); // or refresh app
+            window.location.reload();
+        } catch (err) {
+            alert('Failed to dismiss: ' + err.message);
+        }
+    }
+
+    async handleQuitGroup(groupId) {
+        if (!confirm('Are you sure you want to quit this group?')) return;
+        try {
+            await this.request(`/groups/${groupId}/quit`, { method: 'POST' });
+            alert('You have left the group');
+            this.handleLogout(); // or refresh app
+            window.location.reload();
+        } catch (err) {
+            alert('Failed to quit: ' + err.message);
         }
     }
 
@@ -661,7 +693,7 @@ class GoChatApp {
             const avatarChar = conv.peer_id === 0 ? 'S' : name.charAt(0).toUpperCase();
             
             item.innerHTML = `
-                <div class="avatar-circle" style="${conv.peer_id === 0 ? 'background: var(--warning-color)' : ''}">${avatarChar}</div>
+                <div class="avatar-circle" style="${conv.peer_id === 0 ? 'background: var(--warning-color); color: white;' : ''}">${avatarChar}</div>
                 <div class="list-item-info">
                     <div class="list-item-title">
                         <span class="list-item-name">${name}</span>
@@ -679,24 +711,24 @@ class GoChatApp {
         const container = document.getElementById('list-content');
         container.innerHTML = '';
         
-        // 1. Render Pending Requests first
         const pending = this.requests.filter(r => r.status === 0);
         if (pending.length > 0) {
             const header = document.createElement('div');
-            header.style = "padding: 8px 16px; font-size: 11px; color: var(--text-muted); font-weight: bold; text-transform: uppercase;";
+            header.style = "padding: 16px 20px 8px; font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;";
             header.textContent = "Friend Requests";
             container.appendChild(header);
 
             pending.forEach(req => {
                 const el = document.createElement('div');
                 el.className = 'list-item';
+                el.style = "border-bottom: none;";
                 const senderName = this.knownUsers[req.from_user_id]?.nickname || `User ${req.from_user_id}`;
                 el.innerHTML = `
-                    <div class="avatar-circle" style="background: var(--warning-color)">${senderName.charAt(0).toUpperCase()}</div>
+                    <div class="avatar-circle" style="background: var(--warning-color); color: white; border-radius: 6px;">${senderName.charAt(0).toUpperCase()}</div>
                     <div class="list-item-info">
                         <div class="list-item-title">
                             <span class="list-item-name">${senderName}</span>
-                            <div style="display: flex; gap: 4px;">
+                            <div style="display: flex; gap: 8px;">
                                 <button class="accept-btn" onclick="event.stopPropagation(); window.app.handleApply(${req.id}, true)">✔</button>
                                 <button class="reject-btn" onclick="event.stopPropagation(); window.app.handleApply(${req.id}, false)">✖</button>
                             </div>
@@ -708,11 +740,10 @@ class GoChatApp {
             });
 
             const divider = document.createElement('div');
-            divider.style = "height: 1px; background: var(--border-color); margin: 8px 16px;";
+            divider.style = "height: 1px; background: var(--border-color); margin: 8px 20px;";
             container.appendChild(divider);
         }
 
-        // 2. Render Existing Friends
         if (this.friends.length === 0) {
             if (pending.length === 0) {
                 container.innerHTML = '<div class="empty-state"><p>No friends yet</p></div>';
@@ -724,7 +755,7 @@ class GoChatApp {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.innerHTML = `
-                <div class="avatar-circle">${friend.nickname.charAt(0).toUpperCase()}</div>
+                <div class="avatar-circle" style="border-radius: 6px;">${friend.nickname.charAt(0).toUpperCase()}</div>
                 <div class="list-item-info">
                     <div class="list-item-title">
                         <span class="list-item-name">${friend.remark || friend.nickname}</span>
@@ -750,13 +781,13 @@ class GoChatApp {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.innerHTML = `
-                <div class="avatar-circle">G</div>
+                <div class="avatar-circle" style="border-radius: 6px;">G</div>
                 <div class="list-item-info">
                     <div class="list-item-title">
                         <span class="list-item-name">${group.name}</span>
                         <button class="action-btn-small" onclick="event.stopPropagation(); window.app.startGroupChatById(${group.id}, '${group.name}')">Chat</button>
                     </div>
-                    <div class="list-item-preview">${group.description || ''}</div>
+                    <div class="list-item-preview">${group.description || 'Professional Group'}</div>
                 </div>
             `;
             container.appendChild(item);
@@ -769,10 +800,25 @@ class GoChatApp {
         document.getElementById('chat-view').classList.remove('hidden');
         document.getElementById('active-chat-name').textContent = displayName;
         
-        // Toggle group actions visibility
         const isGroup = conv.conversation_id.startsWith('group_');
-        document.getElementById('group-actions').classList.toggle('hidden', !isGroup);
+        const headerActions = document.getElementById('group-actions');
+        headerActions.classList.toggle('hidden', !isGroup);
         document.getElementById('member-list-panel').classList.add('hidden');
+
+        if (isGroup) {
+            const group = this.groups.find(g => g.id === conv.peer_id);
+            const isOwner = group && group.owner_id === this.user.id;
+            
+            // Render context-aware action buttons
+            headerActions.innerHTML = `
+                <button class="action-btn-small" onclick="window.app.handleInviteMember()">Invite</button>
+                <button class="action-btn-small" onclick="window.app.toggleMemberList()">Members</button>
+                ${isOwner ? 
+                    `<button class="reject-btn" style="font-size: 12px;" onclick="window.app.handleDismissGroup(${group.id})">Dismiss</button>` : 
+                    `<button class="action-btn-small" style="color: var(--danger-color)" onclick="window.app.handleQuitGroup(${group.id})">Quit</button>`
+                }
+            `;
+        }
 
         this.renderConversationList(); // Update active state
         this.loadMessages(conv.conversation_id);
@@ -785,7 +831,7 @@ class GoChatApp {
                 });
                 conv.unread_count = 0;
                 this.renderConversationList();
-                this.loadApplyList(); // Refresh badge
+                this.loadApplyList();
             } catch (err) {
                 console.error('Failed to clear unread', err);
             }
@@ -820,7 +866,7 @@ class GoChatApp {
 
             row.innerHTML = `
                 <div class="message-meta">${senderName} • ${this.formatTime(msg.timestamp)}</div>
-                <div class="message-bubble" style="${isSystem ? 'background: var(--bg-header); font-style: italic; border-left: 3px solid var(--warning-color)' : ''}">
+                <div class="message-bubble" style="${isSystem ? 'background: #f1f5f9; font-style: italic; border-left: 3px solid var(--warning-color); color: var(--text-muted);' : ''}">
                     ${msg.content}
                 </div>
             `;

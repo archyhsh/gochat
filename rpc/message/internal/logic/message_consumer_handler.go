@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/archyhsh/gochat/pkg/snowflake"
@@ -126,29 +127,40 @@ func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event ma
 func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map[string]interface{}) error {
 	action, _ := event["action"].(string)
 	groupId := h.toInt64(event["group_id"])
-	userId := h.toInt64(event["user_id"])
-
-	nickname := h.getUserNickname(ctx, userId)
+	actorId := h.toInt64(event["user_id"])
+	actorName := h.getUserNickname(ctx, actorId)
 
 	var content string
 	var targets []int64
 
 	switch action {
 	case "create":
-		content = fmt.Sprintf("%s created the group", nickname)
-		targets = []int64{userId}
+		content = fmt.Sprintf("%s created the group", actorName)
+		targets = []int64{actorId}
 	case "join":
-		content = fmt.Sprintf("%s joined the group", nickname)
+		content = fmt.Sprintf("%s joined the group", actorName)
 		if intro, ok := event["intro"].(string); ok && intro != "" {
 			content += fmt.Sprintf(". Intro: %s", intro)
 		}
-		targets = []int64{userId}
+		targets = []int64{actorId}
+	case "invite":
+		var inviteeNames []string
+		if rawIds, ok := event["member_ids"].([]interface{}); ok {
+			for _, rid := range rawIds {
+				uid := int64(rid.(float64))
+				inviteeNames = append(inviteeNames, h.getUserNickname(ctx, uid))
+				targets = append(targets, uid)
+			}
+		}
+		content = fmt.Sprintf("%s invited %s to the group", actorName, strings.Join(inviteeNames, ", "))
 	case "quit":
-		content = fmt.Sprintf("%s quit the group", nickname)
+		content = fmt.Sprintf("%s quit the group", actorName)
 	case "kick":
-		content = fmt.Sprintf("Admin kicked a member")
+		content = fmt.Sprintf("Admin removed %s from the group", h.getUserNickname(ctx, h.toInt64(event["user_id"])))
 	case "dismiss":
-		content = "The group has been dismissed"
+		content = "This group has been dismissed by the owner"
+	case "update_announcement":
+		content = fmt.Sprintf("%s updated the group announcement", actorName)
 	default:
 		return nil
 	}
@@ -196,7 +208,7 @@ func (h *MessageConsumerHandler) getUserNickname(ctx context.Context, userId int
 	if err == nil && userResp.User != nil {
 		return userResp.User.Nickname
 	}
-	return "Unknown"
+	return fmt.Sprintf("User %d", userId)
 }
 
 func (h *MessageConsumerHandler) getPrivateConvId(uid1, uid2 int64) string {

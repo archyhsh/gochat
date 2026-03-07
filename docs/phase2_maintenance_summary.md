@@ -10,14 +10,12 @@ This document details the critical fixes implemented to resolve conversation vis
 ## 2. Conversation Initialization (Cold Start)
 - **Atomic Upsert**: The `ConversationModel.UpdateSeq` method was refactored to use `INSERT ... ON DUPLICATE KEY UPDATE`. This ensures that the global conversation record is created upon the very first message if it doesn't exist.
 - **Targeted Visibility (`target_ids`)**: Added a `target_ids` field to `ChatMessageEvent`.
-    - When a group is created, the owner is added to `target_ids`.
-    - When a user joins or is invited, they are added to `target_ids`.
-    - `SaveMessageLogic` ensures that any user in `target_ids` has their local `user_conversation` record initialized, making the chat immediately visible in their list.
+    - **Group Events**: When a group is created, the owner is added to `target_ids`. When a user joins, they are added.
+    - **Friend Events**: When a friend request is accepted, both users are added to `target_ids` for their respective reciprocal notifications.
+    - **Logic**: `SaveMessageLogic` ensures that any user in `target_ids` has their local `user_conversation` record initialized, making the chat immediately visible in their list.
 - **GetMessages Fallback**: `GetMessagesLogic` now falls back to checking the global `conversation` table if a user's local bookmark is missing. This prevents 404 errors when a user opens a legitimate conversation for the first time.
 
 ## 3. Stability & Compatibility
 - **Safe Type Conversion**: Implemented a `toInt64` helper in the Kafka consumer to prevent panics when decoding JSON numbers from various upstream services (handling `nil`, `float64`, and `string` types).
-- **Redundancy Cleanup**: Removed duplicate logic, server, and svc files with inconsistent naming styles to ensure a clean build environment.
-- **Event Mapping**: 
-    - `friend_event` (accept) now triggers a reciprocal system message: "You and [Name] are now friends."
-    - `group_event` (create/join) now correctly resolves nicknames and populates `target_ids` for immediate visibility.
+- **Cleanup**: Performed a systematic cleanup of the `rpc/message` directory, removing redundant underscore-style files that caused redeclaration errors.
+- **Unified Front-end**: Merged friend requests into the "Friends" view and implemented professional member management (Invite/Kick) within the Group view.

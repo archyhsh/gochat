@@ -5,7 +5,9 @@ package message
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/api/internal/svc"
 	"github.com/archyhsh/gochat/api/internal/types"
@@ -44,10 +46,16 @@ func (l *GetConversationsLogic) GetConversations() (resp *types.ConversationsRes
 		Limit: 50,
 	})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "fail to call messageRPC func GetConversations"+err.Error())
+		return nil, status.Error(codes.Internal, "fail to call messageRPC func GetConversations: "+err.Error())
+	}
+
+	groupResp, err := l.svcCtx.GroupRpc.GetGroupList(ctx, &pb.GetGroupListRequest{})
+	if err != nil {
+		l.Errorf("failed to fetch groups for user %d: %v", userId, err)
 	}
 
 	var conversations []types.Conversation
+	existingConvIds := make(map[string]bool)
 	for _, c := range rpcResp.Conversations {
 		conversations = append(conversations, types.Conversation{
 			ConversationId:  c.ConversationId,
@@ -56,6 +64,21 @@ func (l *GetConversationsLogic) GetConversations() (resp *types.ConversationsRes
 			LastMessage:     c.LastMessage,
 			LastMessageTime: c.LastMessageTime,
 		})
+		existingConvIds[c.ConversationId] = true
+	}
+	if groupResp != nil {
+		for _, g := range groupResp.Groups {
+			convId := fmt.Sprintf("group_%d", g.GroupId)
+			if !existingConvIds[convId] {
+				conversations = append(conversations, types.Conversation{
+					ConversationId:  convId,
+					PeerId:          g.GroupId,
+					UnreadCount:     0,
+					LastMessage:     "Joined group",
+					LastMessageTime: time.Now().UnixMilli(),
+				})
+			}
+		}
 	}
 
 	return &types.ConversationsResponse{
