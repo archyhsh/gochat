@@ -18,11 +18,20 @@ class GoChatApp {
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindEvents();
         if (this.token) {
-            this.showApp();
-            this.loadInitialData();
+            try {
+                // Verify token and load profile
+                const me = await this.request('/user/me');
+                this.user = me;
+                localStorage.setItem('user', JSON.stringify(this.user));
+                this.showApp();
+                this.loadInitialData();
+            } catch (err) {
+                console.error('Auth verification failed', err);
+                this.handleLogout();
+            }
         } else {
             this.showAuth();
         }
@@ -876,23 +885,54 @@ class GoChatApp {
         container.scrollTop = container.scrollHeight;
     }
 
-    handleSendMessage() {
+    async handleSendMessage() {
         const input = document.getElementById('chat-input');
         const content = input.value.trim();
         if (!content || !this.currentChat) return;
 
-        console.log('Sending message:', content, 'to', this.currentChat.conversation_id);
+        const conversationId = this.currentChat.conversation_id;
+        const isGroup = conversationId.startsWith('group_');
         
-        const newMsg = {
-            sender_id: this.user.id,
-            content: content,
-            timestamp: Date.now(),
-            conversation_id: this.currentChat.conversation_id
-        };
-        
-        this.messages.push(newMsg);
-        this.renderMessages();
-        input.value = '';
+        try {
+            const body = {
+                conversation_id: conversationId,
+                content: content,
+                msg_type: 1 // TYPE_CHAT
+            };
+            
+            if (isGroup) {
+                body.group_id = this.currentChat.peer_id;
+            } else {
+                body.receiver_id = this.currentChat.peer_id;
+            }
+
+            const data = await this.request('/messages/send', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            
+            const newMsg = {
+                msg_id: data.msg_id,
+                sender_id: this.user.id,
+                content: content,
+                timestamp: data.timestamp,
+                conversation_id: conversationId
+            };
+            
+            this.messages.push(newMsg);
+            this.renderMessages();
+            input.value = '';
+            
+            // Update conversation preview
+            const conv = this.conversations.find(c => c.conversation_id === conversationId);
+            if (conv) {
+                conv.last_message = content;
+                conv.last_message_time = data.timestamp / 1000;
+                this.renderConversationList();
+            }
+        } catch (err) {
+            alert('Failed to send message: ' + err.message);
+        }
     }
 
     formatTime(ts) {

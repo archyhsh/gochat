@@ -108,6 +108,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/messages/:msg_id",
 					Handler: message.GetMessageByIdHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/messages/send",
+					Handler: message.SendMessageHandler(serverCtx),
+				},
 			}...,
 		),
 	)

@@ -18,3 +18,8 @@ GroupRpc:
 JWT:
   JwtSecret: ${JWT_SECRET:gochat-default-secret-key}
   ExpireHours: 72
+
+Kafka:
+  Brokers:
+    - 127.0.0.1:9092
+  Topic: message-topic

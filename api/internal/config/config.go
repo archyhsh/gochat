@@ -15,4 +15,8 @@ type Config struct {
 		JwtSecret   string
 		ExpireHours int
 	}
+	Kafka struct {
+		Brokers []string
+		Topic   string
+	}
 }

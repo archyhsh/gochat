@@ -93,6 +93,8 @@ func (l *SaveMessageLogic) SaveMessage(in *pb.SaveMessageRequest) (*pb.SaveMessa
 			peerId := in.Message.SenderId
 			if in.Message.GroupId > 0 {
 				peerId = in.Message.GroupId
+			} else if peerId == 0 {
+				peerId = in.Message.ReceiverId
 			}
 
 			err = l.svcCtx.UserConversationModel.UpdateNewPrivateMsg(ctx, s, tid, peerId, in.Message.ConversationId, msgModel, incUnread)

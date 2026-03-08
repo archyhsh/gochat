@@ -184,6 +184,19 @@ type SearchResponse struct {
 	Users []User `json:"users"`
 }
 
+type SendMessageRequest struct {
+	ConversationId string `json:"conversation_id"`
+	Content        string `json:"content"`
+	MsgType        int    `json:"msg_type"`
+	ReceiverId     int64  `json:"receiver_id,optional"`
+	GroupId        int64  `json:"group_id,optional"`
+}
+
+type SendMessageResponse struct {
+	MsgId     string `json:"msg_id"`
+	Timestamp int64  `json:"timestamp"`
+}
+
 type UnblockFriendRequest struct {
 	Id int64 `path:"id"`
 }

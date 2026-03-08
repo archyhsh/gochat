@@ -33,6 +33,17 @@ type (
 	GetMessageByIdRequest {
 		MsgId string `path:"msg_id"`
 	}
+	SendMessageRequest {
+		ConversationId string `json:"conversation_id"`
+		Content        string `json:"content"`
+		MsgType        int    `json:"msg_type"`
+		ReceiverId     int64  `json:"receiver_id,optional"`
+		GroupId        int64  `json:"group_id,optional"`
+	}
+	SendMessageResponse {
+		MsgId     string `json:"msg_id"`
+		Timestamp int64  `json:"timestamp"`
+	}
 )
 
 @server (
@@ -51,4 +62,7 @@ service gateway {
 
 	@handler GetMessageById
 	get /messages/:msg_id (GetMessageByIdRequest) returns (Message)
+
+	@handler SendMessage
+	post /messages/send (SendMessageRequest) returns (SendMessageResponse)
 }
