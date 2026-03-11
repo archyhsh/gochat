@@ -1,14 +1,17 @@
 package logic
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/archyhsh/gochat/pkg/snowflake"
+	"github.com/archyhsh/gochat/rpc/group/groupservice"
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/user/userservice"
@@ -57,6 +60,9 @@ func (h *MessageConsumerHandler) handleChatMessage(ctx context.Context, data []b
 	_, err = l.SaveMessage(&pb.SaveMessageRequest{
 		Message: &event,
 	})
+	if err == nil {
+		h.pushToGateways(ctx, &event)
+	}
 	return err
 }
 
@@ -90,36 +96,41 @@ func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event ma
 	convId := h.getPrivateConvId(fromId, toId)
 
 	l := NewSaveMessageLogic(ctx, h.svcCtx)
+	eventA := &pb.ChatMessageEvent{
+		MsgId:          msgId,
+		ConversationId: convId,
+		SenderId:       0,
+		ReceiverId:     toId,
+		MsgType:        6,
+		Content:        content,
+		Timestamp:      time.Now().UnixMilli(),
+		TargetIds:      []int64{fromId},
+	}
 	_, err := l.SaveMessage(&pb.SaveMessageRequest{
-		Message: &pb.ChatMessageEvent{
-			MsgId:          msgId,
-			ConversationId: convId,
-			SenderId:       0,
-			ReceiverId:     toId,
-			MsgType:        6,
-			Content:        content,
-			Timestamp:      time.Now().UnixMilli(),
-			TargetIds:      []int64{fromId},
-		},
+		Message: eventA,
 	})
-	if err != nil {
-		return err
+	if err == nil {
+		h.pushToGateways(ctx, eventA)
 	}
 
 	contentTo := fmt.Sprintf("You and %s are now friends. Say hello!", fromName)
 	msgIdTo := strconv.FormatInt(snowflake.MustNextID(), 10)
+	eventB := &pb.ChatMessageEvent{
+		MsgId:          msgIdTo,
+		ConversationId: convId,
+		SenderId:       0,
+		ReceiverId:     fromId,
+		MsgType:        6,
+		Content:        contentTo,
+		Timestamp:      time.Now().UnixMilli(),
+		TargetIds:      []int64{toId},
+	}
 	_, err = l.SaveMessage(&pb.SaveMessageRequest{
-		Message: &pb.ChatMessageEvent{
-			MsgId:          msgIdTo,
-			ConversationId: convId,
-			SenderId:       0,
-			ReceiverId:     fromId,
-			MsgType:        6,
-			Content:        contentTo,
-			Timestamp:      time.Now().UnixMilli(),
-			TargetIds:      []int64{toId},
-		},
+		Message: eventB,
 	})
+	if err == nil {
+		h.pushToGateways(ctx, eventB)
+	}
 
 	return err
 }
@@ -169,19 +180,89 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 	convId := fmt.Sprintf("group_%d", groupId)
 
 	l := NewSaveMessageLogic(ctx, h.svcCtx)
+	evt := &pb.ChatMessageEvent{
+		MsgId:          msgId,
+		ConversationId: convId,
+		SenderId:       0,
+		GroupId:        groupId,
+		MsgType:        6,
+		Content:        content,
+		Timestamp:      time.Now().UnixMilli(),
+		TargetIds:      targets,
+	}
 	_, err := l.SaveMessage(&pb.SaveMessageRequest{
-		Message: &pb.ChatMessageEvent{
-			MsgId:          msgId,
-			ConversationId: convId,
-			SenderId:       0,
-			GroupId:        groupId,
-			MsgType:        6,
-			Content:        content,
-			Timestamp:      time.Now().UnixMilli(),
-			TargetIds:      targets,
-		},
+		Message: evt,
 	})
+	if err == nil {
+		h.pushToGateways(ctx, evt)
+	}
 	return err
+}
+
+func (h *MessageConsumerHandler) pushToGateways(ctx context.Context, event *pb.ChatMessageEvent) {
+	// 1. Identify all target users
+	var targetUsers []int64
+	if len(event.TargetIds) > 0 {
+		targetUsers = event.TargetIds
+	} else if event.GroupId > 0 {
+		resp, err := h.svcCtx.GroupRpc.GetGroupMembers(ctx, &groupservice.GetGroupMembersRequest{
+			GroupId: event.GroupId,
+		})
+		if err == nil {
+			for _, m := range resp.Members {
+				targetUsers = append(targetUsers, m.UserId)
+			}
+		}
+	} else {
+		// Private chat
+		targetUsers = []int64{event.SenderId, event.ReceiverId}
+	}
+
+	// 2. Group users by gateway address
+	gwMap := make(map[string][]int64)
+	for _, uid := range targetUsers {
+		addr, err := h.svcCtx.Router.Find(ctx, uid)
+		if err == nil && addr != "" {
+			gwMap[addr] = append(gwMap[addr], uid)
+		}
+	}
+
+	// 3. Call internal push API of each gateway in parallel
+	for addr, uids := range gwMap {
+		go h.sendPushRequest(addr, uids, event)
+	}
+}
+
+func (h *MessageConsumerHandler) sendPushRequest(gwAddr string, userIds []int64, event *pb.ChatMessageEvent) {
+	url := fmt.Sprintf("http://%s/internal/push", gwAddr)
+	payload := map[string]interface{}{
+		"user_ids":        userIds,
+		"conversation_id": event.ConversationId,
+		"msg_id":          event.MsgId,
+		"sender_id":       event.SenderId,
+		"content":         event.Content,
+		"msg_type":        int(event.MsgType),
+		"timestamp":       event.Timestamp,
+	}
+
+	data, _ := json.Marshal(payload)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	if err != nil {
+		h.Errorf("Failed to create push request: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := h.svcCtx.HttpClient.Do(req)
+	if err != nil {
+		h.Errorf("Failed to push to gateway %s: %v", gwAddr, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		h.Errorf("Gateway %s returned status %d for push", gwAddr, resp.StatusCode)
+	}
 }
 
 func (h *MessageConsumerHandler) toInt64(val interface{}) int64 {

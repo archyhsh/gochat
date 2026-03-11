@@ -57,6 +57,16 @@ type DismissGroupRequest struct {
 	GroupId int64 `path:"id"`
 }
 
+type DispatchRequest struct {
+	Service string `path:"service"`
+	Action  string `path:"action"`
+	Data    string `json:"data"` // JSON string of the real request
+}
+
+type DispatchResponse struct {
+	Data string `json:"data"` // JSON string of the real response
+}
+
 type FriendInfo struct {
 	UserId   int64  `json:"user_id"`
 	Nickname string `json:"nickname"`
@@ -159,6 +169,20 @@ type Message struct {
 
 type MessagesResponse struct {
 	Messages []Message `json:"messages"`
+}
+
+type PushRequest struct {
+	UserIds        []int64 `json:"user_ids"`
+	ConversationId string  `json:"conversation_id"`
+	MsgId          string  `json:"msg_id"`
+	SenderId       int64   `json:"sender_id"`
+	Content        string  `json:"content"`
+	MsgType        int     `json:"msg_type"`
+	Timestamp      int64   `json:"timestamp"`
+}
+
+type PushResponse struct {
+	Success bool `json:"success"`
 }
 
 type QuitGroupRequest struct {

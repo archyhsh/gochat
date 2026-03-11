@@ -1,15 +1,45 @@
 syntax = "v1"
 
-import "common.api"
-import "user.api"
-import "relation.api"
-import "group.api"
-import "message.api"
-
 info (
 	title:   "Gochat Gateway API"
 	desc:    "Aggregated APIs for Gochat system"
 	author:  "archyhsh"
 	version: "v1"
 )
+
+import "common.api"
+import "user.api"
+import "relation.api"
+import "group.api"
+import "message.api"
+import "internal.api"
+
+type (
+	// backup
+	DispatchRequest {
+		Service string `path:"service"`
+		Action  string `path:"action"`
+		Data    string `json:"data"` // JSON string of the real request
+	}
+	DispatchResponse {
+		Data string `json:"data"` // JSON string of the real response
+	}
+)
+
+@server (
+	group: websocket
+)
+service gateway {
+	@handler WsHandler
+	get /ws
+}
+
+@server (
+	group:      dispatch
+	middleware: AuthMiddleware
+)
+service gateway {
+	@handler Dispatch
+	post /v1/dispatch/:service/:action (DispatchRequest) returns (DispatchResponse)
+}
 

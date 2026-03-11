@@ -1,0 +1,31 @@
+syntax = "v1"
+
+info (
+	title:   "Gochat Internal API"
+	desc:    "internal api for pushing json to target user"
+	author:  "archyhsh"
+	version: "v1"
+)
+
+type (
+	PushRequest {
+		UserIds        []int64 `json:"user_ids"`
+		ConversationId string  `json:"conversation_id"`
+		MsgId          string  `json:"msg_id"`
+		SenderId       int64   `json:"sender_id"`
+		Content        string  `json:"content"`
+		MsgType        int     `json:"msg_type"`
+		Timestamp      int64   `json:"timestamp"`
+	}
+	PushResponse {
+		Success bool `json:"success"`
+	}
+)
+
+@server (
+	group: push
+)
+service gateway {
+	@handler PushMessage
+	post /internal/push (PushRequest) returns (PushResponse)
+}

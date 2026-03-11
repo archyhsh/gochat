@@ -19,5 +19,6 @@ type Config struct {
 		}
 		GroupID string
 	}
-	UserRpc zrpc.RpcClientConf
+	UserRpc  zrpc.RpcClientConf
+	GroupRpc zrpc.RpcClientConf
 }

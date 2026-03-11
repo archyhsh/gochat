@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/stores/redis"
 )
 
 const (
 	UserRoutePrefix = "route:user:"
-	DefaultExpiry   = 24 * time.Hour
+	DefaultExpiry   = 30 * time.Minute // Reduced TTL for better accuracy with heartbeats
 )
 
 type Router struct {
-	rdb        *redis.Client
+	rdb        *redis.Redis
 	serverAddr string
 }
 
-func NewRouter(rdb *redis.Client, serverAddr string) *Router {
+func NewRouter(rdb *redis.Redis, serverAddr string) *Router {
 	return &Router{
 		rdb:        rdb,
 		serverAddr: serverAddr,
@@ -27,7 +27,8 @@ func NewRouter(rdb *redis.Client, serverAddr string) *Router {
 
 func (r *Router) Register(ctx context.Context, userID int64) error {
 	key := fmt.Sprintf("%s%d", UserRoutePrefix, userID)
-	return r.rdb.Set(ctx, key, r.serverAddr, DefaultExpiry).Err()
+	// Store the internal gRPC/HTTP address of THIS gateway node
+	return r.rdb.SetexCtx(ctx, key, r.serverAddr, int(DefaultExpiry.Seconds()))
 }
 
 func (r *Router) Unregister(ctx context.Context, userID int64) error {
@@ -39,14 +40,15 @@ func (r *Router) Unregister(ctx context.Context, userID int64) error {
 			return 0
 		end
 	`
-	return r.rdb.Eval(ctx, script, []string{key}, r.serverAddr).Err()
+	_, err := r.rdb.EvalCtx(ctx, script, []string{key}, r.serverAddr)
+	return err
 }
 
 func (r *Router) Find(ctx context.Context, userID int64) (string, error) {
 	key := fmt.Sprintf("%s%d", UserRoutePrefix, userID)
-	addr, err := r.rdb.Get(ctx, key).Result()
-	if err == redis.Nil {
-		return "", nil
+	addr, err := r.rdb.GetCtx(ctx, key)
+	if err != nil {
+		return "", err
 	}
-	return addr, err
+	return addr, nil
 }

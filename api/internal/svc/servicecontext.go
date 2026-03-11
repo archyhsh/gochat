@@ -4,14 +4,19 @@
 package svc
 
 import (
+	"fmt"
+	"sync"
+
 	"github.com/archyhsh/gochat/api/internal/config"
 	"github.com/archyhsh/gochat/api/internal/middleware"
 	"github.com/archyhsh/gochat/pkg/auth"
+	"github.com/archyhsh/gochat/pkg/router"
 	"github.com/archyhsh/gochat/pkg/snowflake"
 	"github.com/archyhsh/gochat/rpc/group/groupservice"
 	"github.com/archyhsh/gochat/rpc/message/messageservice"
 	"github.com/archyhsh/gochat/rpc/relation/relationservice"
 	"github.com/archyhsh/gochat/rpc/user/userservice"
+	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 
@@ -27,6 +32,8 @@ type ServiceContext struct {
 	MessageRpc     messageservice.MessageService
 	RelationRpc    relationservice.RelationService
 	KafkaProducer  sarama.SyncProducer
+	Router         *router.Router
+	Conns          sync.Map
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -41,6 +48,14 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if err != nil {
 		panic("Failed to initialize Kafka producer: " + err.Error())
 	}
+	rdb := redis.MustNewRedis(redis.RedisConf{
+		Host: c.Redis[0].Host,
+		Type: c.Redis[0].Type,
+		Pass: c.Redis[0].Pass,
+	})
+
+	serverAddr := fmt.Sprintf("%s:%d", c.Host, c.Port)
+	rt := router.NewRouter(rdb, serverAddr)
 
 	return &ServiceContext{
 		Config:         c,
@@ -51,5 +66,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		MessageRpc:     messageservice.NewMessageService(zrpc.MustNewClient(c.MessageRpc)),
 		RelationRpc:    relationservice.NewRelationService(zrpc.MustNewClient(c.RelationRpc)),
 		KafkaProducer:  producer,
+		Router:         rt,
 	}
 }

@@ -6,16 +6,32 @@ package handler
 import (
 	"net/http"
 
+	dispatch "github.com/archyhsh/gochat/api/internal/handler/dispatch"
 	group "github.com/archyhsh/gochat/api/internal/handler/group"
 	message "github.com/archyhsh/gochat/api/internal/handler/message"
+	push "github.com/archyhsh/gochat/api/internal/handler/push"
 	relation "github.com/archyhsh/gochat/api/internal/handler/relation"
 	user "github.com/archyhsh/gochat/api/internal/handler/user"
+	websocket "github.com/archyhsh/gochat/api/internal/handler/websocket"
 	"github.com/archyhsh/gochat/api/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.AuthMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/v1/dispatch/:service/:action",
+					Handler: dispatch.DispatchHandler(serverCtx),
+				},
+			}...,
+		),
+	)
+
 	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.AuthMiddleware},
@@ -118,6 +134,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/internal/push",
+				Handler: push.PushMessageHandler(serverCtx),
+			},
+		},
+	)
+
+	server.AddRoutes(
 		rest.WithMiddlewares(
 			[]rest.Middleware{serverCtx.AuthMiddleware},
 			[]rest.Route{
@@ -206,5 +232,15 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 			}...,
 		),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/ws",
+				Handler: websocket.WsHandler(serverCtx),
+			},
+		},
 	)
 }
