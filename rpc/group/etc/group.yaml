@@ -17,3 +17,8 @@ Kafka:
   Brokers:
     - 127.0.0.1:9092
   Topic: group-topic
+
+UserRpc:
+  Endpoints:
+    - 127.0.0.1:8081
+  NonBlock: true

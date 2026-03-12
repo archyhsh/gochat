@@ -59,6 +59,18 @@ func (l *HandleApplyLogic) HandleApply(in *pb.HandleApplyRequest) (*pb.HandleApp
 		}
 	} else {
 		apply.Status = 2
+		if l.svcCtx.Producer != nil {
+			event := map[string]interface{}{
+				"type":         "friend_event",
+				"action":       "reject",
+				"from_user_id": apply.FromUserId,
+				"to_user_id":   apply.ToUserId,
+				"timestamp":    time.Now().Unix(),
+			}
+			data, _ := json.Marshal(event)
+			key := fmt.Sprintf("friend_%d_%d", apply.FromUserId, apply.ToUserId)
+			_ = l.svcCtx.Producer.Send([]byte(key), data)
+		}
 	}
 	err = l.svcCtx.FriendApplyModel.Update(l.ctx, apply)
 	if err != nil {

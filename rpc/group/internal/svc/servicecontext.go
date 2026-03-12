@@ -4,7 +4,9 @@ import (
 	"github.com/archyhsh/gochat/pkg/kafka"
 	"github.com/archyhsh/gochat/rpc/group/internal/config"
 	"github.com/archyhsh/gochat/rpc/group/model"
+	"github.com/archyhsh/gochat/rpc/user/userservice"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type ServiceContext struct {
@@ -14,6 +16,7 @@ type ServiceContext struct {
 	GroupMemberModel  model.GroupMemberModel
 	GroupRequestModel model.GroupRequestModel
 	Producer          *kafka.Producer
+	UserRpc           userservice.UserService
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -26,5 +29,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		GroupMemberModel:  model.NewGroupMemberModel(sqlConn, c.Cache),
 		GroupRequestModel: model.NewGroupRequestModel(sqlConn, c.Cache),
 		Producer:          p,
+		UserRpc:           userservice.NewUserService(zrpc.MustNewClient(c.UserRpc)),
 	}
 }

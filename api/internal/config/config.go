@@ -21,4 +21,8 @@ type Config struct {
 		Topic   string
 	}
 	Redis cache.CacheConf
+	Etcd  struct {
+		Hosts []string
+		Key   string
+	}
 }

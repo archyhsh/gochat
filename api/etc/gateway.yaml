@@ -25,21 +25,21 @@ Kafka:
   Topic: message-topic
 
 Redis:
-  Host: 127.0.0.1:6379
-  Type: node
+  - Host: 127.0.0.1:6379
+    Type: node
 
 Etcd:
   Hosts:
     - 127.0.0.1:2379
   Key: gateway.api.router
 
-Prometheus:
-  Host: 0.0.0.0
-  Port: 9091
-  Path: /metrics
+# Prometheus:
+#   Host: 0.0.0.0
+#   Port: 9091
+#   Path: /metrics
 
-Telemetry:
-  Name: gateway.api
-  Endpoint: http://127.0.0.1:14268/api/traces
-  Sampler: 1.0
-  Batcher: jaeger
+# Telemetry:
+#   Name: gateway.api
+#   Endpoint: http://127.0.0.1:14268/api/traces
+#   Sampler: 1.0
+#   Batcher: jaeger

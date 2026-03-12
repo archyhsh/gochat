@@ -15,4 +15,5 @@ type Config struct {
 		Brokers []string
 		Topic   string
 	}
+	UserRpc zrpc.RpcClientConf
 }

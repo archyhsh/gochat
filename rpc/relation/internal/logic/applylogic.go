@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -60,5 +61,20 @@ func (l *ApplyLogic) Apply(in *pb.ApplyRequest) (*pb.ApplyResponse, error) {
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to insert apply")
 	}
+
+	// Send real-time event for the target user
+	if l.svcCtx.Producer != nil {
+		event := map[string]interface{}{
+			"type":         "friend_event",
+			"action":       "apply",
+			"from_user_id": userId,
+			"to_user_id":   in.ToUserId,
+			"message":      in.Message,
+			"timestamp":    time.Now().Unix(),
+		}
+		data, _ := json.Marshal(event)
+		_ = l.svcCtx.Producer.Send([]byte(strconv.FormatInt(in.ToUserId, 10)), data)
+	}
+
 	return &pb.ApplyResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}}, nil
 }

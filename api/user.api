@@ -47,6 +47,10 @@ type (
 	SearchResponse {
 		Users []User `json:"users"`
 	}
+	ForgotPasswordRequest {
+		Username    string `json:"username"`
+		NewPassword string `json:"new_password"`
+	}
 )
 
 @server (
@@ -61,6 +65,9 @@ service gateway {
 
 	@handler GetUser
 	get /users/:id (GetUserRequest) returns (User)
+
+	@handler ForgotPassword
+	post /forgot_password (ForgotPasswordRequest) returns (CommonResponse)
 }
 
 @server (
