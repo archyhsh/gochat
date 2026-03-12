@@ -38,10 +38,13 @@ message UserAvatar {
     string nickname = 2;
     string avatar = 3;
     string remark = 4;
+    int64 info_version = 5;
+    int64 relation_version = 6;
 }
 
 message GroupSummary {
     int64 group_id = 1;
     string name = 2;
     string avatar = 3;
+    int64 meta_version = 4;
 }

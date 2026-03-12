@@ -129,6 +129,7 @@ type User struct {
 	Status        int32                  `protobuf:"varint,8,opt,name=status,proto3" json:"status,omitempty"`
 	CreatedAt     int64                  `protobuf:"varint,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     int64                  `protobuf:"varint,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	InfoVersion   int64                  `protobuf:"varint,11,opt,name=info_version,json=infoVersion,proto3" json:"info_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -229,6 +230,13 @@ func (x *User) GetCreatedAt() int64 {
 func (x *User) GetUpdatedAt() int64 {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return 0
+}
+
+func (x *User) GetInfoVersion() int64 {
+	if x != nil {
+		return x.InfoVersion
 	}
 	return 0
 }
@@ -980,7 +988,7 @@ const file_user_proto_rawDesc = "" +
 	"\busername\x18\x01 \x01(\tR\busername\x12!\n" +
 	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"F\n" +
 	"\x16ForgotPasswordResponse\x12,\n" +
-	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\"\x80\x02\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\"\xa3\x02\n" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
@@ -994,7 +1002,8 @@ const file_user_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\x03R\tupdatedAt\"e\n" +
+	" \x01(\x03R\tupdatedAt\x12!\n" +
+	"\finfo_version\x18\v \x01(\x03R\vinfoVersion\"e\n" +
 	"\x0fRegisterRequest\x12\x1a\n" +
 	"\busername\x18\x01 \x01(\tR\busername\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1a\n" +

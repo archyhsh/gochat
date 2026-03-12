@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS `friendship` (
   `friend_id` BIGINT NOT NULL,
   `remark` VARCHAR(50) DEFAULT '',
   `status` TINYINT DEFAULT 0 COMMENT 'status: 0normal 1blacklisted',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT 'friend nickname and status version',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

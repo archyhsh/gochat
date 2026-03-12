@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS `user_conversation` (
   `is_top` TINYINT NOT NULL DEFAULT 0,
   `is_muted` TINYINT NOT NULL DEFAULT 0,
   `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT 'delete/top/muted version(for multiple devices)',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

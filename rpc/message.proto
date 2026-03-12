@@ -12,6 +12,16 @@ service MessageService {
     rpc ClearUnread(ClearUnreadRequest) returns (ClearUnreadResponse);
     rpc GetMessageByID(GetMessageByIDRequest) returns (GetMessageByIDResponse);
     rpc SaveMessage(SaveMessageRequest) returns (SaveMessageResponse);
+    rpc RestoreConversation(RestoreConversationRequest) returns (RestoreConversationResponse);
+}
+
+message RestoreConversationRequest {
+    int64 user_id = 1;
+    string conversation_id = 2;
+}
+
+message RestoreConversationResponse {
+    BaseResponse base = 1;
 }
 
 message ChatMessage {
@@ -25,6 +35,8 @@ message ChatMessage {
     int32 status = 8;
     int64 timestamp = 9;
     int64 sequence = 10;
+    int64 sender_info_version = 11;
+    int64 group_meta_version = 12;
 }
 
 message ConversationInfo {
@@ -38,6 +50,7 @@ message ConversationInfo {
     int64 last_message_time = 8;
     int32 is_top = 9;
     int32 is_muted = 10;
+    int64 version = 11;
 }
 
 message GetMessagesRequest {
@@ -88,6 +101,8 @@ message ChatMessageEvent {
     int64 timestamp = 8;
     string trace_id = 9;
     repeated int64 target_ids = 10; // Explicitly notify these users to initialize bookmarks
+    int64 sender_info_version = 11;
+    int64 group_meta_version = 12;
 }
 
 message SaveMessageRequest {

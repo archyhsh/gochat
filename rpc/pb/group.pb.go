@@ -240,6 +240,7 @@ type Group struct {
 	Status        int32                  `protobuf:"varint,7,opt,name=status,proto3" json:"status,omitempty"`
 	CreatedAt     int64                  `protobuf:"varint,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     int64                  `protobuf:"varint,9,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	MetaVersion   int64                  `protobuf:"varint,10,opt,name=meta_version,json=metaVersion,proto3" json:"meta_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -337,6 +338,13 @@ func (x *Group) GetUpdatedAt() int64 {
 	return 0
 }
 
+func (x *Group) GetMetaVersion() int64 {
+	if x != nil {
+		return x.MetaVersion
+	}
+	return 0
+}
+
 type GroupMember struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -344,6 +352,7 @@ type GroupMember struct {
 	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`
 	Role          int32                  `protobuf:"varint,4,opt,name=role,proto3" json:"role,omitempty"`
 	JoinedAt      int64                  `protobuf:"varint,5,opt,name=joined_at,json=joinedAt,proto3" json:"joined_at,omitempty"`
+	InfoVersion   int64                  `protobuf:"varint,6,opt,name=info_version,json=infoVersion,proto3" json:"info_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -409,6 +418,13 @@ func (x *GroupMember) GetRole() int32 {
 func (x *GroupMember) GetJoinedAt() int64 {
 	if x != nil {
 		return x.JoinedAt
+	}
+	return 0
+}
+
+func (x *GroupMember) GetInfoVersion() int64 {
+	if x != nil {
+		return x.InfoVersion
 	}
 	return 0
 }
@@ -1574,7 +1590,7 @@ const file_group_proto_rawDesc = "" +
 	"\bgroup_id\x18\x02 \x01(\x03R\agroupId\"K\n" +
 	"\x18CheckGroupMemberResponse\x12\x1b\n" +
 	"\tis_member\x18\x01 \x01(\bR\bisMember\x12\x12\n" +
-	"\x04role\x18\x02 \x01(\x05R\x04role\"\xfa\x01\n" +
+	"\x04role\x18\x02 \x01(\x05R\x04role\"\x9d\x02\n" +
 	"\x05Group\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
@@ -1586,13 +1602,16 @@ const file_group_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\b \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\t \x01(\x03R\tupdatedAt\"\x8b\x01\n" +
+	"updated_at\x18\t \x01(\x03R\tupdatedAt\x12!\n" +
+	"\fmeta_version\x18\n" +
+	" \x01(\x03R\vmetaVersion\"\xae\x01\n" +
 	"\vGroupMember\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
 	"\x06avatar\x18\x03 \x01(\tR\x06avatar\x12\x12\n" +
 	"\x04role\x18\x04 \x01(\x05R\x04role\x12\x1b\n" +
-	"\tjoined_at\x18\x05 \x01(\x03R\bjoinedAt\"b\n" +
+	"\tjoined_at\x18\x05 \x01(\x03R\bjoinedAt\x12!\n" +
+	"\finfo_version\x18\x06 \x01(\x03R\vinfoVersion\"b\n" +
 	"\x12CreateGroupRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06avatar\x18\x02 \x01(\tR\x06avatar\x12 \n" +

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `email` VARCHAR(100) DEFAULT '' COMMENT '邮箱',
   `gender` TINYINT DEFAULT 0 COMMENT '性别: 0未知 1男 2女',
   `status` TINYINT DEFAULT 1 COMMENT '状态: 0禁用 1正常',
+  `info_version` BIGINT NOT NULL DEFAULT 0 COMMENT '用户全局资料版本号',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS `friendship` (
   `friend_id` BIGINT NOT NULL COMMENT '好友ID',
   `remark` VARCHAR(50) DEFAULT '' COMMENT '好友备注',
   `status` TINYINT DEFAULT 0 COMMENT '状态: 0正常 1拉黑',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT '好友备注/状态版本号',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -58,6 +60,7 @@ CREATE TABLE IF NOT EXISTS `group` (
   `member_count` INT DEFAULT 1 COMMENT '当前成员数',
   `announcement` VARCHAR(1000) DEFAULT '' COMMENT '群公告',
   `status` TINYINT DEFAULT 1 COMMENT '状态: 0解散 1正常',
+  `meta_version` BIGINT NOT NULL DEFAULT 0 COMMENT '群组元数据版本号 (名称/公告)',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -73,6 +76,7 @@ CREATE TABLE IF NOT EXISTS `group_member` (
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
   `role` TINYINT DEFAULT 0 COMMENT '角色: 0成员 1管理员 2群主',
   `nickname` VARCHAR(50) DEFAULT '' COMMENT '群内昵称',
+  `info_version` BIGINT NOT NULL DEFAULT 0 COMMENT '群成员群内资料版本号 (含群昵称)',
   `muted_until` TIMESTAMP NULL DEFAULT NULL COMMENT '禁言截止时间',
   `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -84,18 +88,18 @@ CREATE TABLE IF NOT EXISTS `group_member` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群成员表';
 
 
-CREATE TABLE IF NOT EXISTS `group_request` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `group_id` BIGINT NOT NULL COMMENT '群ID',
-  `user_id` BIGINT NOT NULL COMMENT '用户ID',
-  `message` VARCHAR(255) DEFAULT '' COMMENT '申请消息',
-  `status` TINYINT DEFAULT 0 COMMENT '状态: 0待处理 1已同意 2已拒绝',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_group_id` (`group_id`),
-  KEY `idx_user_id` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群申请表';
+-- CREATE TABLE IF NOT EXISTS `group_request` (
+--   `id` BIGINT NOT NULL AUTO_INCREMENT,
+--   `group_id` BIGINT NOT NULL COMMENT '群ID',
+--   `user_id` BIGINT NOT NULL COMMENT '用户ID',
+--   `message` VARCHAR(255) DEFAULT '' COMMENT '申请消息',
+--   `status` TINYINT DEFAULT 0 COMMENT '状态: 0待处理 1已同意 2已拒绝',
+--   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+--   PRIMARY KEY (`id`),
+--   KEY `idx_group_id` (`group_id`),
+--   KEY `idx_user_id` (`user_id`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群申请表';
 
 
 CREATE TABLE IF NOT EXISTS `conversation` (
@@ -131,6 +135,7 @@ CREATE TABLE IF NOT EXISTS `user_conversation` (
   `is_top` TINYINT NOT NULL DEFAULT 0 COMMENT '是否置顶',
   `is_muted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否免打扰',
   `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '是否删除',
+  `version` BIGINT NOT NULL DEFAULT 0 COMMENT '会话设置版本号 (置顶/免打扰)',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
