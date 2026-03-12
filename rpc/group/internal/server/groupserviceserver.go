@@ -87,3 +87,8 @@ func (s *GroupServiceServer) CheckGroupMember(ctx context.Context, in *pb.CheckG
 	l := logic.NewCheckGroupMemberLogic(ctx, s.svcCtx)
 	return l.CheckGroupMember(in)
 }
+
+func (s *GroupServiceServer) UpdateGroupNickname(ctx context.Context, in *pb.UpdateGroupNicknameRequest) (*pb.UpdateGroupNicknameResponse, error) {
+	l := logic.NewUpdateGroupNicknameLogic(ctx, s.svcCtx)
+	return l.UpdateGroupNickname(in)
+}

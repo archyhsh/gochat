@@ -50,6 +50,10 @@ type (
 		Id        int64   `path:"id"`
 		MemberIds []int64 `json:"member_ids"`
 	}
+	UpdateGroupNicknameRequest {
+		GroupId  int64  `path:"id"`
+		Nickname string `json:"nickname"`
+	}
 	QuitGroupRequest {
 		GroupId int64 `path:"id"`
 	}
@@ -102,4 +106,7 @@ service gateway {
 
 	@handler InviteMembers
 	post /groups/:id/invite (InviteRequest) returns (CommonResponse)
+
+	@handler UpdateGroupNickname
+	put /groups/:id/nickname (UpdateGroupNicknameRequest) returns (CommonResponse)
 }

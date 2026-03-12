@@ -19,19 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GroupService_CreateGroup_FullMethodName        = "/gochat.rpc.GroupService/CreateGroup"
-	GroupService_GetGroupList_FullMethodName       = "/gochat.rpc.GroupService/GetGroupList"
-	GroupService_GetGroupInfo_FullMethodName       = "/gochat.rpc.GroupService/GetGroupInfo"
-	GroupService_GetGroupMembers_FullMethodName    = "/gochat.rpc.GroupService/GetGroupMembers"
-	GroupService_JoinGroup_FullMethodName          = "/gochat.rpc.GroupService/JoinGroup"
-	GroupService_QuitGroup_FullMethodName          = "/gochat.rpc.GroupService/QuitGroup"
-	GroupService_KickGroupMember_FullMethodName    = "/gochat.rpc.GroupService/KickGroupMember"
-	GroupService_DismissGroup_FullMethodName       = "/gochat.rpc.GroupService/DismissGroup"
-	GroupService_UpdateAnnouncement_FullMethodName = "/gochat.rpc.GroupService/UpdateAnnouncement"
-	GroupService_GetAnnouncement_FullMethodName    = "/gochat.rpc.GroupService/GetAnnouncement"
-	GroupService_SearchGroups_FullMethodName       = "/gochat.rpc.GroupService/SearchGroups"
-	GroupService_InviteMembers_FullMethodName      = "/gochat.rpc.GroupService/InviteMembers"
-	GroupService_CheckGroupMember_FullMethodName   = "/gochat.rpc.GroupService/CheckGroupMember"
+	GroupService_CreateGroup_FullMethodName         = "/gochat.rpc.GroupService/CreateGroup"
+	GroupService_GetGroupList_FullMethodName        = "/gochat.rpc.GroupService/GetGroupList"
+	GroupService_GetGroupInfo_FullMethodName        = "/gochat.rpc.GroupService/GetGroupInfo"
+	GroupService_GetGroupMembers_FullMethodName     = "/gochat.rpc.GroupService/GetGroupMembers"
+	GroupService_JoinGroup_FullMethodName           = "/gochat.rpc.GroupService/JoinGroup"
+	GroupService_QuitGroup_FullMethodName           = "/gochat.rpc.GroupService/QuitGroup"
+	GroupService_KickGroupMember_FullMethodName     = "/gochat.rpc.GroupService/KickGroupMember"
+	GroupService_DismissGroup_FullMethodName        = "/gochat.rpc.GroupService/DismissGroup"
+	GroupService_UpdateAnnouncement_FullMethodName  = "/gochat.rpc.GroupService/UpdateAnnouncement"
+	GroupService_GetAnnouncement_FullMethodName     = "/gochat.rpc.GroupService/GetAnnouncement"
+	GroupService_SearchGroups_FullMethodName        = "/gochat.rpc.GroupService/SearchGroups"
+	GroupService_InviteMembers_FullMethodName       = "/gochat.rpc.GroupService/InviteMembers"
+	GroupService_CheckGroupMember_FullMethodName    = "/gochat.rpc.GroupService/CheckGroupMember"
+	GroupService_UpdateGroupNickname_FullMethodName = "/gochat.rpc.GroupService/UpdateGroupNickname"
 )
 
 // GroupServiceClient is the client API for GroupService service.
@@ -51,6 +52,7 @@ type GroupServiceClient interface {
 	SearchGroups(ctx context.Context, in *SearchGroupsRequest, opts ...grpc.CallOption) (*SearchGroupsResponse, error)
 	InviteMembers(ctx context.Context, in *InviteMembersRequest, opts ...grpc.CallOption) (*InviteMembersResponse, error)
 	CheckGroupMember(ctx context.Context, in *CheckGroupMemberRequest, opts ...grpc.CallOption) (*CheckGroupMemberResponse, error)
+	UpdateGroupNickname(ctx context.Context, in *UpdateGroupNicknameRequest, opts ...grpc.CallOption) (*UpdateGroupNicknameResponse, error)
 }
 
 type groupServiceClient struct {
@@ -191,6 +193,16 @@ func (c *groupServiceClient) CheckGroupMember(ctx context.Context, in *CheckGrou
 	return out, nil
 }
 
+func (c *groupServiceClient) UpdateGroupNickname(ctx context.Context, in *UpdateGroupNicknameRequest, opts ...grpc.CallOption) (*UpdateGroupNicknameResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateGroupNicknameResponse)
+	err := c.cc.Invoke(ctx, GroupService_UpdateGroupNickname_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GroupServiceServer is the server API for GroupService service.
 // All implementations must embed UnimplementedGroupServiceServer
 // for forward compatibility.
@@ -208,6 +220,7 @@ type GroupServiceServer interface {
 	SearchGroups(context.Context, *SearchGroupsRequest) (*SearchGroupsResponse, error)
 	InviteMembers(context.Context, *InviteMembersRequest) (*InviteMembersResponse, error)
 	CheckGroupMember(context.Context, *CheckGroupMemberRequest) (*CheckGroupMemberResponse, error)
+	UpdateGroupNickname(context.Context, *UpdateGroupNicknameRequest) (*UpdateGroupNicknameResponse, error)
 	mustEmbedUnimplementedGroupServiceServer()
 }
 
@@ -256,6 +269,9 @@ func (UnimplementedGroupServiceServer) InviteMembers(context.Context, *InviteMem
 }
 func (UnimplementedGroupServiceServer) CheckGroupMember(context.Context, *CheckGroupMemberRequest) (*CheckGroupMemberResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckGroupMember not implemented")
+}
+func (UnimplementedGroupServiceServer) UpdateGroupNickname(context.Context, *UpdateGroupNicknameRequest) (*UpdateGroupNicknameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateGroupNickname not implemented")
 }
 func (UnimplementedGroupServiceServer) mustEmbedUnimplementedGroupServiceServer() {}
 func (UnimplementedGroupServiceServer) testEmbeddedByValue()                      {}
@@ -512,6 +528,24 @@ func _GroupService_CheckGroupMember_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GroupService_UpdateGroupNickname_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateGroupNicknameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GroupServiceServer).UpdateGroupNickname(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GroupService_UpdateGroupNickname_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GroupServiceServer).UpdateGroupNickname(ctx, req.(*UpdateGroupNicknameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GroupService_ServiceDesc is the grpc.ServiceDesc for GroupService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -570,6 +604,10 @@ var GroupService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CheckGroupMember",
 			Handler:    _GroupService_CheckGroupMember_Handler,
+		},
+		{
+			MethodName: "UpdateGroupNickname",
+			Handler:    _GroupService_UpdateGroupNickname_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

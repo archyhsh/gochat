@@ -16,9 +16,11 @@ type Config struct {
 		Topics  struct {
 			Message string
 			Group   string
+			User    string
 		}
 		GroupID string
 	}
-	UserRpc  zrpc.RpcClientConf
-	GroupRpc zrpc.RpcClientConf
+	UserRpc     zrpc.RpcClientConf
+	GroupRpc    zrpc.RpcClientConf
+	RelationRpc zrpc.RpcClientConf
 }

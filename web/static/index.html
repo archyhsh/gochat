@@ -5,12 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GoChat - Modern IM</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
     <!-- Auth Page -->
     <div id="auth-page" class="auth-container">
         <div class="auth-box">
-            <h2>GoChat v2.0.0</h2>
+            <div class="auth-logo">
+                <i class="fas fa-comments"></i>
+                <h2>GoChat v2.5.2</h2>
+            </div>
+            
             <div class="auth-tabs">
                 <div class="auth-tab active" data-type="login">Login</div>
                 <div class="auth-tab" data-type="register">Register</div>
@@ -18,21 +23,40 @@
             
             <div id="auth-error" class="error-msg hidden"></div>
 
+            <!-- Login Form -->
             <div id="login-form">
                 <div class="form-group">
-                    <label>Username</label>
+                    <label><i class="fas fa-user"></i> Username</label>
                     <input type="text" id="login-username" placeholder="Enter username">
                 </div>
                 <div class="form-group">
-                    <label>Password</label>
+                    <label><i class="fas fa-lock"></i> Password</label>
                     <input type="password" id="login-password" placeholder="Enter password">
                 </div>
                 <button id="login-btn" class="auth-btn">Sign In</button>
-                <p style="text-align: center; margin-top: 16px; font-size: 13px;">
+                <div class="auth-footer">
                     <a href="#" onclick="app.showForgot()">Forgot Password?</a>
-                </p>
+                </div>
             </div>
 
+            <!-- Register Form -->
+            <div id="register-form" class="hidden">
+                <div class="form-group">
+                    <label><i class="fas fa-at"></i> Username</label>
+                    <input type="text" id="reg-username" placeholder="Choose a username">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-signature"></i> Nickname</label>
+                    <input type="text" id="reg-nickname" placeholder="Your display name">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-key"></i> Password</label>
+                    <input type="password" id="reg-password" placeholder="Create a password">
+                </div>
+                <button id="register-btn" class="auth-btn">Create Account</button>
+            </div>
+
+            <!-- Forgot Password Form -->
             <div id="forgot-form" class="hidden">
                 <div class="form-group">
                     <label>Username</label>
@@ -43,25 +67,9 @@
                     <input type="password" id="forgot-new-password" placeholder="Enter new password">
                 </div>
                 <button id="reset-btn" class="auth-btn">Reset Password</button>
-                <p style="text-align: center; margin-top: 16px; font-size: 13px;">
+                <div class="auth-footer">
                     <a href="#" onclick="app.switchAuthTab('login')">Back to Login</a>
-                </p>
-            </div>
-
-            <div id="register-form" class="hidden">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" id="reg-username" placeholder="Choose a username">
                 </div>
-                <div class="form-group">
-                    <label>Nickname</label>
-                    <input type="text" id="reg-nickname" placeholder="Your display name">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="reg-password" placeholder="Create a password">
-                </div>
-                <button id="register-btn" class="auth-btn">Create Account</button>
             </div>
         </div>
     </div>
@@ -70,25 +78,39 @@
     <div id="app-page" class="app-container hidden">
         <!-- Sidebar -->
         <aside class="sidebar">
-            <header class="sidebar-header">
-                <div class="user-profile" onclick="app.showSettings()" style="cursor: pointer;">
-                    <div id="my-avatar" class="avatar-circle">U</div>
-                    <span id="my-name" class="user-name">User</span>
+            <div class="sidebar-top">
+                <div class="user-card" onclick="app.showSettings()">
+                    <div id="my-avatar" class="avatar-circle main-avatar">U</div>
+                    <div class="user-card-info">
+                        <span id="my-name" class="user-card-name">User</span>
+                        <span class="user-status"><i class="fas fa-circle"></i> Online</span>
+                    </div>
+                    <button id="logout-btn" class="icon-btn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
                 </div>
-                <button id="logout-btn" class="send-btn" title="Logout">Logout</button>
-            </header>
 
-            <nav class="sidebar-nav">
-                <div class="nav-item active" data-view="chats">Chats</div>
-                <div class="nav-item" data-view="friends">Friends <span id="request-badge" class="badge hidden">0</span></div>
-                <div class="nav-item" data-view="groups">Groups</div>
-                <button id="create-group-btn" class="send-btn" style="font-size: 14px; margin-left: auto;" title="Create Group">+</button>
-            </nav>
-
-            <div class="search-bar">
-                <div class="search-input-wrapper">
-                    <input type="text" id="global-search" placeholder="Search...">
+                <div class="search-section">
+                    <div class="search-input-wrapper">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="global-search" placeholder="Search friends or groups...">
+                    </div>
                 </div>
+
+                <nav class="sidebar-nav">
+                    <div class="nav-item active" data-view="chats">
+                        <i class="fas fa-comment-dots"></i>
+                        <span>Chats</span>
+                    </div>
+                    <div class="nav-item" data-view="friends">
+                        <i class="fas fa-user-friends"></i>
+                        <span>Friends</span>
+                        <span id="request-badge" class="badge hidden">0</span>
+                    </div>
+                    <div class="nav-item" data-view="groups">
+                        <i class="fas fa-users"></i>
+                        <span>Groups</span>
+                    </div>
+                    <button id="create-group-btn" class="add-circle-btn" title="Create Group"><i class="fas fa-plus"></i></button>
+                </nav>
             </div>
 
             <div id="list-content" class="list-container">
@@ -96,31 +118,34 @@
             </div>
         </aside>
 
-        <!-- Chat Main Area -->
+        <!-- Chat Area -->
         <main class="chat-area">
             <!-- Welcome View -->
             <div id="welcome-view" class="empty-state">
-                <div class="empty-icon">💬</div>
+                <div class="empty-icon"><i class="fas fa-rocket"></i></div>
                 <h3>Welcome to GoChat</h3>
-                <p>Select a conversation to start messaging</p>
+                <p>Pick a conversation or find new friends to start.</p>
             </div>
 
             <!-- Active Chat View -->
-            <div id="chat-view" class="hidden" style="height: 100%; display: flex; flex-direction: column;">
+            <div id="chat-view" class="hidden">
                 <header class="chat-header">
                     <div class="chat-header-info">
-                        <div class="avatar-circle">T</div>
-                        <h4 id="active-chat-name">Conversation</h4>
+                        <div id="active-avatar" class="avatar-circle small">T</div>
+                        <div class="header-text">
+                            <h4 id="active-chat-name">Conversation</h4>
+                            <span id="chat-subtext" class="subtext">Online</span>
+                        </div>
                     </div>
-                    <div id="group-actions" class="hidden">
-                        <button id="invite-btn" class="action-btn-small" title="Invite">Invite</button>
-                        <button id="members-btn" class="action-btn-small" title="Members">Members</button>
-                        <button id="quit-group-btn" class="action-btn-small danger" title="Quit">Quit</button>
-                        <button id="dismiss-group-btn" class="action-btn-small danger hidden" title="Dismiss">Dismiss</button>
+                    <div id="group-actions" class="chat-actions hidden">
+                        <button id="invite-btn" class="action-btn" title="Invite Friends"><i class="fas fa-user-plus"></i></button>
+                        <button id="members-btn" class="action-btn" title="Group Members"><i class="fas fa-users-viewfinder"></i></button>
+                        <button id="quit-group-btn" class="action-btn danger" title="Quit Group"><i class="fas fa-sign-out-alt"></i></button>
+                        <button id="dismiss-group-btn" class="action-btn danger hidden" title="Dismiss Group"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 </header>
 
-                <div id="member-list-panel" class="hidden" style="background: var(--bg-sidebar); border-bottom: 1px solid var(--border-color); max-height: 200px; overflow-y: auto;">
+                <div id="member-list-panel" class="member-list-panel hidden">
                     <!-- Members list -->
                 </div>
 
@@ -130,18 +155,19 @@
 
                 <footer class="chat-input-area">
                     <div class="chat-input-wrapper">
+                        <button class="icon-btn"><i class="far fa-smile"></i></button>
                         <input type="text" id="chat-input" placeholder="Type a message...">
-                        <button id="send-msg-btn" class="send-btn">➤</button>
+                        <button id="send-msg-btn" class="send-btn"><i class="fas fa-paper-plane"></i></button>
                     </div>
                 </footer>
             </div>
         </main>
     </div>
 
-    <!-- Modals -->
-    <div id="settings-modal" class="auth-container hidden" style="position: fixed; top: 0; left: 0; width: 100%; z-index: 1000; background: rgba(0,0,0,0.5);">
-        <div class="auth-box">
-            <h3>Profile Settings</h3>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="auth-box settings-box">
+            <h3><i class="fas fa-cog"></i> User Settings</h3>
             <div class="form-group">
                 <label>Nickname</label>
                 <input type="text" id="set-nickname">
@@ -158,22 +184,38 @@
                 <label>Email</label>
                 <input type="email" id="set-email">
             </div>
-            <div style="display: flex; gap: 12px;">
-                <button onclick="app.handleUpdateProfile()" class="auth-btn">Save</button>
-                <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="auth-btn" style="background: #94a3b8;">Cancel</button>
+            <div class="modal-footer">
+                <button onclick="app.handleUpdateProfile()" class="auth-btn">Save Changes</button>
+                <button onclick="document.getElementById('settings-modal').classList.add('hidden')" class="auth-btn secondary">Cancel</button>
             </div>
         </div>
     </div>
 
-    <div id="invite-modal" class="auth-container hidden" style="position: fixed; top: 0; left: 0; width: 100%; z-index: 1001; background: rgba(0,0,0,0.5);">
-        <div class="auth-box">
-            <h3>Invite Friends</h3>
-            <div id="invite-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+    <!-- Invite Modal -->
+    <div id="invite-modal" class="modal-overlay hidden">
+        <div class="auth-box invite-box">
+            <h3><i class="fas fa-user-plus"></i> Invite Friends</h3>
+            <div id="invite-list" class="modal-list">
                 <!-- Friend items with checkbox -->
             </div>
-            <div style="display: flex; gap: 12px;">
+            <div class="modal-footer">
                 <button onclick="app.submitInvite()" class="auth-btn">Invite Selected</button>
-                <button onclick="document.getElementById('invite-modal').classList.add('hidden')" class="auth-btn" style="background: #94a3b8;">Cancel</button>
+                <button onclick="document.getElementById('invite-modal').classList.add('hidden')" class="auth-btn secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Member Settings Modal (For group nickname) -->
+    <div id="member-settings-modal" class="modal-overlay hidden">
+        <div class="auth-box">
+            <h3>Group Member Settings</h3>
+            <div class="form-group">
+                <label>My Group Nickname</label>
+                <input type="text" id="set-group-nickname" placeholder="Leave empty to use global name">
+            </div>
+            <div class="modal-footer">
+                <button onclick="app.handleUpdateGroupNickname()" class="auth-btn">Save</button>
+                <button onclick="document.getElementById('member-settings-modal').classList.add('hidden')" class="auth-btn secondary">Cancel</button>
             </div>
         </div>
     </div>

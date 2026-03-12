@@ -87,6 +87,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: group.GetGroupMembersHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPut,
+					Path:    "/groups/:id/nickname",
+					Handler: group.UpdateGroupNicknameHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPost,
 					Path:    "/groups/:id/quit",
 					Handler: group.QuitGroupHandler(serverCtx),
@@ -193,6 +198,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 
 	server.AddRoutes(
 		[]rest.Route{
+			{
+				Method:  http.MethodPost,
+				Path:    "/forgot_password",
+				Handler: user.ForgotPasswordHandler(serverCtx),
+			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/login",

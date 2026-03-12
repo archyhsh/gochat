@@ -20,6 +20,17 @@ service GroupService {
     rpc SearchGroups(SearchGroupsRequest) returns (SearchGroupsResponse);
     rpc InviteMembers(InviteMembersRequest) returns (InviteMembersResponse);
     rpc CheckGroupMember(CheckGroupMemberRequest) returns (CheckGroupMemberResponse);
+    rpc UpdateGroupNickname(UpdateGroupNicknameRequest) returns (UpdateGroupNicknameResponse);
+}
+
+message UpdateGroupNicknameRequest {
+    int64 group_id = 1;
+    int64 user_id = 2;
+    string nickname = 3;
+}
+
+message UpdateGroupNicknameResponse {
+    BaseResponse base = 1;
 }
 
 message CheckGroupMemberRequest {

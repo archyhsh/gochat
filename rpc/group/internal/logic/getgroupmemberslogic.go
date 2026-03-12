@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 
+	"fmt"
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/user/userservice"
@@ -59,22 +60,29 @@ func (l *GetGroupMembersLogic) GetGroupMembers(in *pb.GetGroupMembersRequest) (*
 
 	var pbMembers []*pb.GroupMember
 	for _, m := range members {
-		nickname := m.Nickname
 		avatar := ""
-
+		globalNick := ""
 		if u, ok := userMap[m.UserId]; ok {
-			if nickname == "" {
-				nickname = u.Nickname
-			}
+			globalNick = u.Nickname
 			avatar = u.Avatar
 		}
-		if nickname == "" {
-			nickname = "User " + string(m.UserId)
+
+		displayNick := globalNick
+		if m.Nickname != "" {
+			if globalNick != "" && m.Nickname != globalNick {
+				displayNick = fmt.Sprintf("%s (%s)", m.Nickname, globalNick)
+			} else {
+				displayNick = m.Nickname
+			}
+		}
+
+		if displayNick == "" {
+			displayNick = fmt.Sprintf("User %d", m.UserId)
 		}
 
 		pbMembers = append(pbMembers, &pb.GroupMember{
 			UserId:   m.UserId,
-			Nickname: nickname,
+			Nickname: displayNick,
 			Avatar:   avatar,
 			Role:     int32(m.Role),
 			JoinedAt: m.JoinedAt.Unix(),

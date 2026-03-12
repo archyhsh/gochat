@@ -1,20 +1,23 @@
-// GoChat Client v2.4.0
+// GoChat Client v2.6.0 - Polished Edition
 const API_BASE = ''; 
 
 class GoChatApp {
     constructor() {
         this.token = localStorage.getItem('token');
         this.user = JSON.parse(localStorage.getItem('user') || 'null');
-        this.currentChat = null;
+        this.currentChat = null; // { conversation_id, peer_id, isGroup }
         this.conversations = [];
         this.friends = [];
         this.groups = [];
         this.messages = [];
         this.requests = [];
-        this.currentView = 'chats';
+        
+        this.currentView = 'chats'; 
         this.ws = null;
         this.reconnectAttempts = 0;
         this.heartbeatTimer = null;
+        this.searchTimer = null;
+        
         this.init();
     }
 
@@ -29,24 +32,34 @@ class GoChatApp {
                 await this.loadInitialData();
                 this.connectWebSocket();
             } catch (err) { this.handleLogout(); }
-        } else this.showAuth();
+        } else {
+            this.showAuth();
+        }
     }
 
     bindEvents() {
-        // Auth
+        // Auth Actions
         document.getElementById('login-btn').onclick = () => this.handleLogin();
         document.getElementById('register-btn').onclick = () => this.handleRegister();
         document.getElementById('logout-btn').onclick = () => this.handleLogout();
         document.getElementById('reset-btn').onclick = () => this.handleForgotPassword();
         
-        document.querySelectorAll('.auth-tab').forEach(tab => tab.onclick = () => this.switchAuthTab(tab.dataset.type));
-        document.querySelectorAll('.nav-item').forEach(item => item.onclick = () => this.switchView(item.dataset.view));
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.onclick = () => this.switchAuthTab(tab.dataset.type);
+        });
 
-        // Messaging
+        // Sidebar Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.onclick = () => this.switchView(item.dataset.view);
+        });
+
+        // Chat View Actions
         document.getElementById('send-msg-btn').onclick = () => this.handleSendMessage();
-        document.getElementById('chat-input').onkeypress = (e) => { if (e.key === 'Enter') this.handleSendMessage(); };
+        document.getElementById('chat-input').onkeypress = (e) => {
+            if (e.key === 'Enter') this.handleSendMessage();
+        };
 
-        // Group Actions
+        // Group Features
         document.getElementById('create-group-btn').onclick = () => {
             const name = prompt('Enter group name:');
             if (name) this.handleCreateGroup(name);
@@ -56,10 +69,11 @@ class GoChatApp {
         document.getElementById('quit-group-btn').onclick = () => this.handleQuitGroup();
         document.getElementById('dismiss-group-btn').onclick = () => this.handleDismissGroup();
 
-        // Search
+        // Global Search with Debounce
         document.getElementById('global-search').oninput = (e) => {
             clearTimeout(this.searchTimer);
-            this.searchTimer = setTimeout(() => this.handleSearch(e.target.value.trim()), 500);
+            const val = e.target.value.trim();
+            this.searchTimer = setTimeout(() => this.handleSearch(val), 400);
         };
     }
 
@@ -69,7 +83,9 @@ class GoChatApp {
         if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
 
         const resp = await fetch(`${API_BASE}${path}`, { ...options, headers });
-        const data = await resp.json();
+        let data = {};
+        try { if (resp.status !== 204) data = await resp.json(); } catch(e) {}
+        
         if (!resp.ok) {
             if (resp.status === 401) this.handleLogout();
             throw new Error(data.message || 'Request failed');
@@ -77,31 +93,70 @@ class GoChatApp {
         return data;
     }
 
-    // --- Profile & Auth ---
+    // --- UI Controls ---
+    showApp() {
+        document.getElementById('auth-page').classList.add('hidden');
+        document.getElementById('app-page').classList.remove('hidden');
+        this.updateMyProfile();
+    }
+
+    showAuth() {
+        document.getElementById('app-page').classList.add('hidden');
+        document.getElementById('auth-page').classList.remove('hidden');
+        this.switchAuthTab('login');
+    }
+
+    switchAuthTab(type) {
+        document.querySelectorAll('.auth-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.type === type);
+        });
+        document.getElementById('login-form').classList.toggle('hidden', type !== 'login');
+        document.getElementById('register-form').classList.toggle('hidden', type !== 'register');
+        document.getElementById('forgot-form').classList.add('hidden');
+        document.getElementById('auth-error').classList.add('hidden');
+    }
+
+    showForgot() {
+        document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.add('hidden');
+        document.getElementById('forgot-form').classList.remove('hidden');
+    }
+
+    switchView(view) {
+        this.currentView = view;
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.view === view);
+        });
+        document.getElementById('global-search').value = '';
+        this.renderCurrentList();
+    }
+
+    // --- Authentication ---
     async handleLogin() {
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
+        const errorEl = document.getElementById('auth-error');
         try {
             const data = await this.request('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-            this.token = data.token;
-            this.user = data.user;
+            this.token = data.token; this.user = data.user;
             localStorage.setItem('token', this.token);
             localStorage.setItem('user', JSON.stringify(this.user));
             this.showApp();
             await this.loadInitialData();
             this.connectWebSocket();
-        } catch (err) { alert(err.message); }
+        } catch (err) { errorEl.textContent = err.message; errorEl.classList.remove('hidden'); }
     }
 
     async handleRegister() {
         const username = document.getElementById('reg-username').value;
         const nickname = document.getElementById('reg-nickname').value;
         const password = document.getElementById('reg-password').value;
+        const errorEl = document.getElementById('auth-error');
         try {
             await this.request('/register', { method: 'POST', body: JSON.stringify({ username, nickname, password }) });
+            alert('Registered successfully! Please sign in.');
             this.switchAuthTab('login');
-            alert('Registered! Please login.');
-        } catch (err) { alert(err.message); }
+        } catch (err) { errorEl.textContent = err.message; errorEl.classList.remove('hidden'); }
     }
 
     async handleForgotPassword() {
@@ -114,11 +169,15 @@ class GoChatApp {
         } catch (err) { alert(err.message); }
     }
 
-    showForgot() {
-        document.getElementById('login-form').classList.add('hidden');
-        document.getElementById('forgot-form').classList.remove('hidden');
+    handleLogout() {
+        this.stopHeartbeat();
+        if (this.ws) this.ws.close();
+        this.token = this.user = null;
+        localStorage.clear();
+        this.showAuth();
     }
 
+    // --- User Settings ---
     showSettings() {
         document.getElementById('set-nickname').value = this.user.nickname;
         document.getElementById('set-avatar').value = this.user.avatar || '';
@@ -140,18 +199,18 @@ class GoChatApp {
             localStorage.setItem('user', JSON.stringify(this.user));
             this.updateMyProfile();
             document.getElementById('settings-modal').classList.add('hidden');
+            alert('Profile updated!');
         } catch (err) { alert(err.message); }
     }
 
-    handleLogout() {
-        this.stopHeartbeat();
-        if (this.ws) this.ws.close();
-        this.token = this.user = null;
-        localStorage.clear();
-        this.showAuth();
+    updateMyProfile() {
+        if (!this.user) return;
+        document.getElementById('my-name').textContent = this.user.nickname;
+        const avatarEl = document.getElementById('my-avatar');
+        avatarEl.textContent = (this.user.nickname || 'U')[0].toUpperCase();
     }
 
-    // --- Real-time Logic ---
+    // --- Real-time Logic (WebSocket) ---
     connectWebSocket() {
         if (this.ws) this.ws.close();
         const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${this.token}`;
@@ -164,7 +223,9 @@ class GoChatApp {
         };
         this.ws.onclose = () => {
             this.stopHeartbeat();
-            if (this.token) setTimeout(() => { this.reconnectAttempts++; this.connectWebSocket(); }, Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000));
+            if (this.token) {
+                setTimeout(() => { this.reconnectAttempts++; this.connectWebSocket(); }, Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000));
+            }
         };
     }
 
@@ -175,13 +236,9 @@ class GoChatApp {
     stopHeartbeat() { if (this.heartbeatTimer) clearInterval(this.heartbeatTimer); }
 
     onReceiveRealtimeMessage(msg) {
-        // --- SIGNAL HANDLING (NON-DISPLAY) ---
-        if (msg.msg_type >= 10) {
-            this.handleSignalMessage(msg);
-            return;
-        }
+        if (msg.msg_type >= 10) return this.handleSignalMessage(msg);
 
-        // --- DISPLAY MESSAGES ---
+        // Reconciliation: match optimistic local message
         const existingIdx = this.messages.findIndex(m => m.msg_id === msg.msg_id || (m.isOptimistic && m.content === msg.content));
         
         if (this.currentChat?.conversation_id === msg.conversation_id) {
@@ -198,95 +255,91 @@ class GoChatApp {
             this.renderConversationList();
         } else this.loadConversations();
 
-        if (msg.msg_type === 6) this.loadInitialData(); // Trigger reload on system messages
+        if (msg.msg_type === 6) this.loadInitialData();
     }
 
     handleSignalMessage(msg) {
-        console.log('Received signal:', msg.msg_type, msg.content);
         switch (msg.msg_type) {
-            case 10: // Friend Apply
-                this.loadRequests();
-                break;
-            case 11: // Friend Reject
-                alert(`Friend request ${msg.content}`);
-                this.loadRequests();
-                break;
-            case 12: // Kicked / Left Group
+            case 10: this.loadRequests(); break;
+            case 11: alert(`Friend request ${msg.content}`); this.loadRequests(); break;
+            case 12: 
+            case 13: 
                 if (this.currentChat?.conversation_id === msg.conversation_id) {
-                    alert('You have been removed from this group.');
-                    this.currentChat = null;
-                    document.getElementById('chat-view').classList.add('hidden');
-                    document.getElementById('welcome-view').classList.remove('hidden');
-                }
-                this.loadInitialData();
-                break;
-            case 13: // Group Dismissed
-                alert('Group has been dismissed by owner.');
-                if (this.currentChat?.conversation_id === msg.conversation_id) {
-                    this.currentChat = null;
-                    document.getElementById('chat-view').classList.add('hidden');
-                    document.getElementById('welcome-view').classList.remove('hidden');
+                    alert(msg.msg_type === 12 ? 'Removed from group' : 'Group dismissed');
+                    this.closeChat();
                 }
                 this.loadInitialData();
                 break;
         }
     }
 
-    // --- Search & Groups ---
+    // --- Search & Discovery ---
     async handleSearch(keyword) {
-        if (!keyword) { this.switchView(this.currentView); return; }
+        if (!keyword) return this.renderCurrentList();
         try {
             const data = await this.request(`/${this.currentView === 'groups' ? 'groups' : 'users'}/search?keyword=${encodeURIComponent(keyword)}`);
             const container = document.getElementById('list-content');
             if (this.currentView === 'groups') {
                 container.innerHTML = (data.groups || []).map(g => `<div class="list-item">
                     <div class="avatar-circle">G</div>
-                    <div class="list-item-info"><div class="list-item-name">${g.name}</div></div>
+                    <div class="list-item-info"><div class="list-item-name">${g.name}</div><div class="list-item-preview">Group ID: ${g.id}</div></div>
                     <button class="action-btn-small" onclick="app.handleJoinGroup(${g.id})">Join</button>
                 </div>`).join('');
             } else {
                 container.innerHTML = (data.users || []).map(u => `<div class="list-item">
-                    <div class="avatar-circle">${u.nickname[0]}</div>
-                    <div class="list-item-info"><div class="list-item-name">${u.nickname}</div></div>
+                    <div class="avatar-circle">${(u.nickname || '?')[0].toUpperCase()}</div>
+                    <div class="list-item-info"><div class="list-item-name">${u.nickname}</div><div class="list-item-preview">User ID: ${u.id}</div></div>
                     ${this.user.id !== u.id ? `<button class="action-btn-small" onclick="app.handleApplyFriend(${u.id})">Add</button>` : ''}
                 </div>`).join('');
             }
         } catch (e) {}
     }
 
-    async handleJoinGroup(groupId) {
-        const message = prompt('Message:');
-        try {
-            await this.request(`/groups/${groupId}/join`, { method: 'POST', body: JSON.stringify({ message }) });
-            alert('Joined!'); this.loadGroups();
-        } catch (err) { alert(err.message); }
+    async handleApplyFriend(userId) {
+        const message = prompt('Note to user:');
+        if (message !== null) await this.request('/friend/apply', { method: 'POST', body: JSON.stringify({ to_user_id: userId, message }) });
     }
 
+    async handleJoinGroup(groupId) {
+        const message = prompt('Note to owner:');
+        if (message !== null) {
+            await this.request(`/groups/${groupId}/join`, { method: 'POST', body: JSON.stringify({ message }) });
+            alert('Join request sent!');
+        }
+    }
+
+    async handleHandleApply(applyId, accept) {
+        try {
+            await this.request('/friend/apply/handle', { method: 'POST', body: JSON.stringify({ apply_id: applyId, accept }) });
+            await this.loadInitialData();
+        } catch(e) { alert(e.message); }
+    }
+
+    // --- Group Actions ---
     async handleCreateGroup(name) {
         try {
             const g = await this.request('/groups', { method: 'POST', body: JSON.stringify({ name }) });
-            await this.loadGroups(); this.openGroupChat(g.id);
-        } catch (err) { alert(err.message); }
+            await this.loadInitialData();
+            this.openGroupChat(g.id);
+        } catch(e) { alert(e.message); }
     }
 
     async handleInviteMember() {
         if (!this.currentChat?.isGroup) return;
         try {
-            // 1. Get current members
             const { members } = await this.request(`/groups/${this.currentChat.peer_id}/members`);
             const memberIds = new Set(members.map(m => m.user_id));
+            const candidates = this.friends.filter(f => !memberIds.has(f.user_id) && f.user_id !== this.user.id);
             
-            // 2. Filter friends who are not members
-            const invitees = this.friends.filter(f => !memberIds.has(f.user_id));
-            
-            if (invitees.length === 0) return alert('All your friends are already in this group.');
+            if (!candidates.length) return alert('No friends to invite.');
 
-            // 3. Show Modal
             const listEl = document.getElementById('invite-list');
-            listEl.innerHTML = invitees.map(f => `
+            listEl.innerHTML = candidates.map(f => `
                 <div class="member-item">
                     <input type="checkbox" class="invite-check" value="${f.user_id}" id="chk-${f.user_id}">
-                    <label for="chk-${f.user_id}" style="margin-left: 10px; cursor: pointer;">${f.nickname}</label>
+                    <label for="chk-${f.user_id}" style="margin-left:12px; cursor:pointer; flex:1; font-weight:600;">
+                        ${f.nickname} <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(ID:${f.user_id})</span>
+                    </label>
                 </div>
             `).join('');
             document.getElementById('invite-modal').classList.remove('hidden');
@@ -295,86 +348,122 @@ class GoChatApp {
 
     async submitInvite() {
         const selected = Array.from(document.querySelectorAll('.invite-check:checked')).map(el => parseInt(el.value));
-        if (selected.length === 0) return;
+        if (!selected.length) return;
         try {
             await this.request(`/groups/${this.currentChat.peer_id}/invite`, { method: 'POST', body: JSON.stringify({ member_ids: selected }) });
             document.getElementById('invite-modal').classList.add('hidden');
-            alert('Invited!');
-        } catch (e) { alert(e.message); }
+            alert('Invitation sent!');
+        } catch(e) { alert(e.message); }
     }
 
     async toggleMembers() {
         const panel = document.getElementById('member-list-panel');
         if (!panel.classList.contains('hidden')) return panel.classList.add('hidden');
+        
         try {
             const data = await this.request(`/groups/${this.currentChat.peer_id}/members`);
             const group = this.groups.find(g => g.id === this.currentChat.peer_id);
             const isOwner = group?.owner_id === this.user.id;
-            panel.innerHTML = data.members.map(m => `
+            
+            panel.innerHTML = data.members.map(m => {
+                const name = m.nickname || `User ${m.user_id}`;
+                const initial = name[0].toUpperCase();
+                return `
                 <div class="member-item">
-                    <div class="avatar-circle" style="width: 32px; height: 32px; font-size: 11px;">${(m.nickname || '?')[0]}</div>
+                    <div class="avatar-circle" style="width:34px; height:34px; font-size:12px; background: #cbd5e1;">${initial}</div>
                     <div class="member-info-text">
                         <div class="member-name-row">
-                            <span style="overflow: hidden; text-overflow: ellipsis;">${m.nickname || 'User ' + m.user_id}</span>
-                            ${m.user_id === this.user.id ? '<span class="member-role-tag role-me">You</span>' : ''}
+                            <span class="member-display-name">${name}</span>
+                            ${m.user_id === this.user.id ? '<span class="member-role-tag role-me" onclick="app.showMemberSettings()" style="cursor:pointer;">You</span>' : ''}
                             ${m.role === 2 ? '<span class="member-role-tag role-owner">Owner</span>' : ''}
                         </div>
+                        <div style="font-size: 11px; color: var(--text-muted);">ID: ${m.user_id}</div>
                     </div>
                     ${isOwner && m.user_id !== this.user.id ? `<button class="action-btn-small danger" onclick="app.handleKickMember(${m.user_id})">Kick</button>` : ''}
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
             panel.classList.remove('hidden');
-        } catch (e) {}
+        } catch (e) { console.error('Failed to load members', e); }
     }
 
     async handleKickMember(userId) {
-        if (confirm('Kick user?')) {
-            await this.request(`/groups/${this.currentChat.peer_id}/kick/${userId}`, { method: 'POST' });
-            this.toggleMembers(); 
+        if (confirm('Remove this member?')) {
+            try {
+                await this.request(`/groups/${this.currentChat.peer_id}/kick/${userId}`, { method: 'POST' });
+                this.toggleMembers(); // refresh
+            } catch(e) { alert(e.message); }
         }
     }
 
+    showMemberSettings() {
+        document.getElementById('member-settings-modal').classList.remove('hidden');
+    }
+
+    async handleUpdateGroupNickname() {
+        const nickname = document.getElementById('set-group-nickname').value;
+        try {
+            await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
+            document.getElementById('member-settings-modal').classList.add('hidden');
+            this.toggleMembers();
+        } catch(e) { alert(e.message); }
+    }
+
     async handleUpdateAnnouncement() {
-        const content = prompt('Announcement:');
-        if (content) await this.request(`/groups/${this.currentChat.peer_id}/announcement`, { method: 'PUT', body: JSON.stringify({ content }) });
+        const content = prompt('Group Announcement:');
+        if (content) {
+            try {
+                await this.request(`/groups/${this.currentChat.peer_id}/announcement`, { method: 'PUT', body: JSON.stringify({ content }) });
+                alert('Announcement updated!');
+            } catch(e) { alert(e.message); }
+        }
     }
 
     async handleQuitGroup() {
-        if (confirm('Quit?')) {
-            await this.request(`/groups/${this.currentChat.peer_id}/quit`, { method: 'POST' });
-            this.currentChat = null; this.switchView('chats'); this.loadInitialData();
-            document.getElementById('chat-view').classList.add('hidden');
-            document.getElementById('welcome-view').classList.remove('hidden');
+        if (confirm('Quit group?')) {
+            try {
+                await this.request(`/groups/${this.currentChat.peer_id}/quit`, { method: 'POST' });
+                this.closeChat();
+            } catch(e) { alert(e.message); }
         }
     }
 
     async handleDismissGroup() {
-        if (confirm('DISMISS?')) {
-            await this.request(`/groups/${this.currentChat.peer_id}`, { method: 'DELETE' });
-            this.currentChat = null; this.switchView('chats'); this.loadInitialData();
-            document.getElementById('chat-view').classList.add('hidden');
-            document.getElementById('welcome-view').classList.remove('hidden');
+        if (confirm('DISMISS group permanently?')) {
+            try {
+                await this.request(`/groups/${this.currentChat.peer_id}`, { method: 'DELETE' });
+                this.closeChat();
+            } catch(e) { alert(e.message); }
         }
+    }
+
+    closeChat() {
+        this.currentChat = null;
+        document.getElementById('chat-view').classList.add('hidden');
+        document.getElementById('welcome-view').classList.remove('hidden');
+        this.loadInitialData();
     }
 
     // --- Loading & Rendering ---
     async loadInitialData() {
         this.updateMyProfile();
-        const [c, f, g, r] = await Promise.all([
-            this.request('/conversations'), this.request('/friends'), this.request('/groups'), this.request('/friend/apply/list')
-        ]);
-        this.conversations = c.conversations || [];
-        this.friends = f.friends || [];
-        this.groups = g.groups || [];
-        this.requests = r.applies || [];
-        this.updateBadge();
-        this.switchView(this.currentView);
+        try {
+            const [c, f, g, r] = await Promise.all([
+                this.request('/conversations'), this.request('/friends'), this.request('/groups'), this.request('/friend/apply/list')
+            ]);
+            this.conversations = c.conversations || [];
+            this.friends = f.friends || [];
+            this.groups = g.groups || [];
+            this.requests = r.applies || [];
+            this.updateBadge();
+            this.renderCurrentList();
+        } catch(e) { console.error('Data load error', e); }
     }
 
-    async loadMessages(id) {
-        const data = await this.request(`/messages?conversation_id=${id}`);
-        this.messages = data.messages || [];
-        this.renderMessages(); this.scrollToBottom();
+    renderCurrentList() {
+        const container = document.getElementById('list-content');
+        if (this.currentView === 'chats') this.renderConversationList();
+        else if (this.currentView === 'friends') this.renderFriendList();
+        else if (this.currentView === 'groups') this.renderGroupList();
     }
 
     renderConversationList() {
@@ -388,9 +477,9 @@ class GoChatApp {
                         <span class="list-item-name">${c.conversation_id.startsWith('group') ? 'Group' : 'User'} ${c.peer_id}</span>
                         <span class="list-item-time">${this.formatTime(c.last_message_time)}</span>
                     </div>
-                    <div class="list-item-preview">${c.last_message || '...'}</div>
+                    <div class="list-item-preview">${c.last_message || 'No messages yet'}</div>
                 </div>
-                ${c.unread_count > 0 ? `<span class="badge ${c.is_muted ? 'muted' : ''}">${c.unread_count}</span>` : ''}
+                ${c.unread_count > 0 ? `<span class="badge">${c.unread_count}</span>` : ''}
             </div>
         `).join('');
     }
@@ -399,22 +488,25 @@ class GoChatApp {
         const pending = this.requests.filter(r => r.status === 0);
         let html = '';
         if (pending.length) {
-            html += `<div style="padding:10px 20px; font-size:11px; font-weight:700; color:var(--text-muted);">APPLICATIONS</div>`;
+            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">APPLICATIONS</div>`;
             html += pending.map(r => `
                 <div class="list-item">
                     <div class="avatar-circle">?</div>
-                    <div class="list-item-info"><div class="list-item-name">User ${r.from_user_id}</div></div>
-                    <div style="display:flex; gap:8px;">
+                    <div class="list-item-info">
+                        <div class="list-item-name">User ${r.from_user_id}</div>
+                        <div class="list-item-preview">${r.message || 'Wants to be friends'}</div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
                         <button class="accept-btn" onclick="app.handleHandleApply(${r.id}, true)">✔</button>
                         <button class="reject-btn" onclick="app.handleHandleApply(${r.id}, false)">✖</button>
                     </div>
                 </div>
             `).join('');
         }
-        html += `<div style="padding:10px 20px; font-size:11px; font-weight:700; color:var(--text-muted);">FRIENDS</div>`;
+        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">FRIENDS</div>`;
         html += this.friends.map(f => `
             <div class="list-item" onclick="app.openPrivateChat(${f.user_id})">
-                <div class="avatar-circle">${(f.nickname || 'U')[0]}</div>
+                <div class="avatar-circle">${(f.nickname || 'U')[0].toUpperCase()}</div>
                 <div class="list-item-info">
                     <div class="list-item-name">${f.nickname}</div>
                     <div class="list-item-preview">ID: ${f.user_id}</div>
@@ -431,7 +523,7 @@ class GoChatApp {
                 <div class="avatar-circle">G</div>
                 <div class="list-item-info">
                     <div class="list-item-name">${g.name}</div>
-                    <div class="list-item-preview">${g.description || '...'}</div>
+                    <div class="list-item-preview">${g.description || 'GoChat Group'}</div>
                 </div>
                 <button class="action-btn-small" onclick="event.stopPropagation(); app.openGroupChat(${g.id})">Chat</button>
             </div>
@@ -461,12 +553,17 @@ class GoChatApp {
         } catch (e) { this.messages = this.messages.filter(m => m.msg_id !== opt.msg_id); this.renderMessages(); alert(e.message); }
     }
 
-    openChat(id, pId, isG) {
+    async openChat(id, pId, isG) {
         this.currentChat = { conversation_id: id, peer_id: pId, isGroup: isG };
         document.getElementById('welcome-view').classList.add('hidden');
         document.getElementById('chat-view').classList.remove('hidden');
         document.getElementById('member-list-panel').classList.add('hidden');
-        document.getElementById('active-chat-name').textContent = isG ? `Group ${pId}` : `User ${pId}`;
+        
+        // Header
+        const avatarEl = document.getElementById('active-avatar');
+        avatarEl.textContent = isG ? 'G' : 'U';
+        document.getElementById('active-chat-name').textContent = isG ? `Group: ${pId}` : `User: ${pId}`;
+        
         const groupActions = document.getElementById('group-actions');
         if (isG) {
             groupActions.classList.remove('hidden');
@@ -477,35 +574,25 @@ class GoChatApp {
             document.getElementById('active-chat-name').onclick = isOwner ? () => this.handleUpdateAnnouncement() : null;
             document.getElementById('active-chat-name').style.cursor = isOwner ? 'pointer' : 'default';
         } else groupActions.classList.add('hidden');
-        this.loadMessages(id);
-        this.request('/conversations/clear_unread', { method: 'POST', body: JSON.stringify({ conversation_id: id }) }).then(() => this.loadConversations());
+        
+        try {
+            const data = await this.request(`/messages?conversation_id=${id}`);
+            this.messages = data.messages || []; this.renderMessages(); this.scrollToBottom();
+            this.request('/conversations/clear_unread', { method: 'POST', body: JSON.stringify({ conversation_id: id }) }).then(() => this.loadConversations());
+        } catch(e) {}
     }
 
     openPrivateChat(userId) { this.switchView('chats'); this.openChat(this.user.id < userId ? `conv_${this.user.id}_${userId}` : `conv_${userId}_${this.user.id}`, userId, false); }
     openGroupChat(groupId) { this.switchView('chats'); this.openChat(`group_${groupId}`, groupId, true); }
 
-    switchView(view) {
-        this.currentView = view;
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view));
-        document.getElementById('global-search').value = '';
-        if (view === 'chats') this.renderConversationList();
-        else if (view === 'friends') this.renderFriendList();
-        else if (view === 'groups') this.renderGroupList();
+    updateBadge() {
+        const badge = document.getElementById('request-badge');
+        const count = this.requests.filter(r => r.status === 0).length;
+        badge.textContent = count;
+        badge.classList.toggle('hidden', count === 0);
     }
 
-    switchAuthTab(type) {
-        document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.type === type));
-        document.getElementById('login-form').classList.toggle('hidden', type !== 'login');
-        document.getElementById('register-form').classList.toggle('hidden', type !== 'register');
-        document.getElementById('forgot-form').classList.add('hidden');
-    }
-
-    showApp() { document.getElementById('auth-page').classList.add('hidden'); document.getElementById('app-page').classList.remove('hidden'); }
-    showAuth() { document.getElementById('app-page').classList.add('hidden'); document.getElementById('auth-page').classList.remove('hidden'); }
-    updateMyProfile() { if (!this.user) return; document.getElementById('my-name').textContent = this.user.nickname; document.getElementById('my-avatar').textContent = (this.user.nickname || 'U')[0]; }
-    updateBadge() { const badge = document.getElementById('request-badge'); const count = this.requests.filter(r => r.status === 0).length; badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
-    getAvatarChar(id) { return id.startsWith('group') ? 'G' : 'U'; }
-    formatTime(ts) { if (!ts) return ''; const date = new Date(ts * 1000); return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    formatTime(ts) { if (!ts) return ''; const d = new Date(ts * 1000); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
     scrollToBottom() { const el = document.getElementById('message-list'); el.scrollTop = el.scrollHeight; }
 }
 

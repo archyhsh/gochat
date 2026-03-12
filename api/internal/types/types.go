@@ -67,6 +67,11 @@ type DispatchResponse struct {
 	Data string `json:"data"` // JSON string of the real response
 }
 
+type ForgotPasswordRequest struct {
+	Username    string `json:"username"`
+	NewPassword string `json:"new_password"`
+}
+
 type FriendInfo struct {
 	UserId   int64  `json:"user_id"`
 	Nickname string `json:"nickname"`
@@ -228,6 +233,11 @@ type UnblockFriendRequest struct {
 type UpdateAnnouncementRequest struct {
 	Id      int64  `path:"id"`
 	Content string `json:"content"`
+}
+
+type UpdateGroupNicknameRequest struct {
+	GroupId  int64  `path:"id"`
+	Nickname string `json:"nickname"`
 }
 
 type UpdateRemarkRequest struct {

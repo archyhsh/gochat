@@ -19,6 +19,7 @@ Kafka:
   Topics:
     Message: message-topic
     Group: group-topic
+    User: user-topic
   GroupID: message-rpc-consumer-group
 
 UserRpc:
@@ -29,4 +30,9 @@ UserRpc:
 GroupRpc:
   Endpoints:
     - 127.0.0.1:8082
+  NonBlock: true
+
+RelationRpc:
+  Endpoints:
+    - 127.0.0.1:8083
   NonBlock: true

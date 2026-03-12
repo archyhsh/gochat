@@ -15,4 +15,8 @@ type Config struct {
 		AccessSecret string
 		AccessExpire int64
 	}
+	Kafka struct {
+		Brokers []string
+		Topic   string
+	}
 }
