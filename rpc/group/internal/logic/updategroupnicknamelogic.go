@@ -33,6 +33,15 @@ func (l *UpdateGroupNicknameLogic) UpdateGroupNickname(in *pb.UpdateGroupNicknam
 		return nil, err
 	}
 
+	// Increment group meta version for announcement/nick changes
+	group, err := l.svcCtx.GroupModel.FindOne(l.ctx, in.GroupId)
+	var metaVersion int64
+	if err == nil && group != nil {
+		metaVersion = time.Now().UnixNano()
+		group.MetaVersion = metaVersion
+		_ = l.svcCtx.GroupModel.Update(l.ctx, group)
+	}
+
 	// Send group nickname update event
 	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
@@ -40,6 +49,7 @@ func (l *UpdateGroupNicknameLogic) UpdateGroupNickname(in *pb.UpdateGroupNicknam
 			"group_id":  in.GroupId,
 			"user_id":   in.UserId,
 			"nickname":  in.Nickname,
+			"version":   metaVersion,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)

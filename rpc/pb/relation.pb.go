@@ -896,6 +896,7 @@ func (x *UpdateRemarkRequest) GetRemark() string {
 type UpdateRemarkResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Base          *BaseResponse          `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	Version       int64                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -935,6 +936,13 @@ func (x *UpdateRemarkResponse) GetBase() *BaseResponse {
 		return x.Base
 	}
 	return nil
+}
+
+func (x *UpdateRemarkResponse) GetVersion() int64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
 }
 
 var File_relation_proto protoreflect.FileDescriptor
@@ -993,9 +1001,10 @@ const file_relation_proto_rawDesc = "" +
 	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\"J\n" +
 	"\x13UpdateRemarkRequest\x12\x1b\n" +
 	"\tfriend_id\x18\x01 \x01(\x03R\bfriendId\x12\x16\n" +
-	"\x06remark\x18\x02 \x01(\tR\x06remark\"D\n" +
+	"\x06remark\x18\x02 \x01(\tR\x06remark\"^\n" +
 	"\x14UpdateRemarkResponse\x12,\n" +
-	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base2\xe4\x05\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x03R\aversion2\xe4\x05\n" +
 	"\x0fRelationService\x12<\n" +
 	"\x05Apply\x12\x18.gochat.rpc.ApplyRequest\x1a\x19.gochat.rpc.ApplyResponse\x12N\n" +
 	"\vHandleApply\x12\x1e.gochat.rpc.HandleApplyRequest\x1a\x1f.gochat.rpc.HandleApplyResponse\x12T\n" +

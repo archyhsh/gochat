@@ -131,6 +131,7 @@ type ChatMessage struct {
 	Sequence          int64                  `protobuf:"varint,10,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	SenderInfoVersion int64                  `protobuf:"varint,11,opt,name=sender_info_version,json=senderInfoVersion,proto3" json:"sender_info_version,omitempty"`
 	GroupMetaVersion  int64                  `protobuf:"varint,12,opt,name=group_meta_version,json=groupMetaVersion,proto3" json:"group_meta_version,omitempty"`
+	RelationVersion   int64                  `protobuf:"varint,13,opt,name=relation_version,json=relationVersion,proto3" json:"relation_version,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -245,6 +246,13 @@ func (x *ChatMessage) GetSenderInfoVersion() int64 {
 func (x *ChatMessage) GetGroupMetaVersion() int64 {
 	if x != nil {
 		return x.GroupMetaVersion
+	}
+	return 0
+}
+
+func (x *ChatMessage) GetRelationVersion() int64 {
+	if x != nil {
+		return x.RelationVersion
 	}
 	return 0
 }
@@ -779,6 +787,7 @@ type ChatMessageEvent struct {
 	TargetIds         []int64                `protobuf:"varint,10,rep,packed,name=target_ids,json=targetIds,proto3" json:"target_ids,omitempty"` // Explicitly notify these users to initialize bookmarks
 	SenderInfoVersion int64                  `protobuf:"varint,11,opt,name=sender_info_version,json=senderInfoVersion,proto3" json:"sender_info_version,omitempty"`
 	GroupMetaVersion  int64                  `protobuf:"varint,12,opt,name=group_meta_version,json=groupMetaVersion,proto3" json:"group_meta_version,omitempty"`
+	RelationVersion   int64                  `protobuf:"varint,13,opt,name=relation_version,json=relationVersion,proto3" json:"relation_version,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -897,6 +906,13 @@ func (x *ChatMessageEvent) GetGroupMetaVersion() int64 {
 	return 0
 }
 
+func (x *ChatMessageEvent) GetRelationVersion() int64 {
+	if x != nil {
+		return x.RelationVersion
+	}
+	return 0
+}
+
 type SaveMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       *ChatMessageEvent      `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -995,7 +1011,7 @@ const file_message_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12'\n" +
 	"\x0fconversation_id\x18\x02 \x01(\tR\x0econversationId\"K\n" +
 	"\x1bRestoreConversationResponse\x12,\n" +
-	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\"\x8b\x03\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\"\xb6\x03\n" +
 	"\vChatMessage\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\tR\x05msgId\x12'\n" +
 	"\x0fconversation_id\x18\x02 \x01(\tR\x0econversationId\x12\x1b\n" +
@@ -1010,7 +1026,8 @@ const file_message_proto_rawDesc = "" +
 	"\bsequence\x18\n" +
 	" \x01(\x03R\bsequence\x12.\n" +
 	"\x13sender_info_version\x18\v \x01(\x03R\x11senderInfoVersion\x12,\n" +
-	"\x12group_meta_version\x18\f \x01(\x03R\x10groupMetaVersion\"\xfc\x02\n" +
+	"\x12group_meta_version\x18\f \x01(\x03R\x10groupMetaVersion\x12)\n" +
+	"\x10relation_version\x18\r \x01(\x03R\x0frelationVersion\"\xfc\x02\n" +
 	"\x10ConversationInfo\x12'\n" +
 	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\x12\x17\n" +
 	"\apeer_id\x18\x02 \x01(\x03R\x06peerId\x12!\n" +
@@ -1044,7 +1061,7 @@ const file_message_proto_rawDesc = "" +
 	"\x06msg_id\x18\x01 \x01(\tR\x05msgId\"y\n" +
 	"\x16GetMessageByIDResponse\x12,\n" +
 	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\x121\n" +
-	"\amessage\x18\x02 \x01(\v2\x17.gochat.rpc.ChatMessageR\amessage\"\x96\x03\n" +
+	"\amessage\x18\x02 \x01(\v2\x17.gochat.rpc.ChatMessageR\amessage\"\xc1\x03\n" +
 	"\x10ChatMessageEvent\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\tR\x05msgId\x12'\n" +
 	"\x0fconversation_id\x18\x02 \x01(\tR\x0econversationId\x12\x1b\n" +
@@ -1060,7 +1077,8 @@ const file_message_proto_rawDesc = "" +
 	"target_ids\x18\n" +
 	" \x03(\x03R\ttargetIds\x12.\n" +
 	"\x13sender_info_version\x18\v \x01(\x03R\x11senderInfoVersion\x12,\n" +
-	"\x12group_meta_version\x18\f \x01(\x03R\x10groupMetaVersion\"L\n" +
+	"\x12group_meta_version\x18\f \x01(\x03R\x10groupMetaVersion\x12)\n" +
+	"\x10relation_version\x18\r \x01(\x03R\x0frelationVersion\"L\n" +
 	"\x12SaveMessageRequest\x126\n" +
 	"\amessage\x18\x01 \x01(\v2\x1c.gochat.rpc.ChatMessageEventR\amessage\"C\n" +
 	"\x13SaveMessageResponse\x12,\n" +

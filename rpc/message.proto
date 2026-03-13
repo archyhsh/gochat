@@ -37,6 +37,7 @@ message ChatMessage {
     int64 sequence = 10;
     int64 sender_info_version = 11;
     int64 group_meta_version = 12;
+    int64 relation_version = 13;
 }
 
 message ConversationInfo {
@@ -103,6 +104,7 @@ message ChatMessageEvent {
     repeated int64 target_ids = 10; // Explicitly notify these users to initialize bookmarks
     int64 sender_info_version = 11;
     int64 group_meta_version = 12;
+    int64 relation_version = 13;
 }
 
 message SaveMessageRequest {

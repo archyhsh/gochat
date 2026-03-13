@@ -177,13 +177,14 @@ type MessagesResponse struct {
 }
 
 type PushRequest struct {
-	UserIds        []int64 `json:"user_ids"`
-	ConversationId string  `json:"conversation_id"`
-	MsgId          string  `json:"msg_id"`
-	SenderId       int64   `json:"sender_id"`
-	Content        string  `json:"content"`
-	MsgType        int     `json:"msg_type"`
-	Timestamp      int64   `json:"timestamp"`
+	UserIds         []int64 `json:"user_ids"`
+	ConversationId  string  `json:"conversation_id"`
+	MsgId           string  `json:"msg_id"`
+	SenderId        int64   `json:"sender_id"`
+	Content         string  `json:"content"`
+	MsgType         int     `json:"msg_type"`
+	Timestamp       int64   `json:"timestamp"`
+	RelationVersion int64   `json:"relation_version,optional"`
 }
 
 type PushResponse struct {

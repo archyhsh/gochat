@@ -55,6 +55,7 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 	userInfo.Phone = in.Phone
 	userInfo.Email = in.Email
 	userInfo.Gender = int64(in.Gender)
+	userInfo.InfoVersion = time.Now().UnixNano()
 	err = l.svcCtx.UserModel.Update(l.ctx, userInfo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update user info: "+err.Error())
@@ -66,6 +67,7 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 			"type":      "nickname_update",
 			"user_id":   userId,
 			"nickname":  in.Nickname,
+			"version":   userInfo.InfoVersion,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
@@ -74,6 +76,14 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 
 	return &pb.UpdateUserResponse{
 		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
-		User: &pb.User{Id: userId, Nickname: in.Nickname, Avatar: in.Avatar, Phone: in.Phone, Email: in.Email, Gender: in.Gender},
+		User: &pb.User{
+			Id:          userId,
+			Nickname:    in.Nickname,
+			Avatar:      in.Avatar,
+			Phone:       in.Phone,
+			Email:       in.Email,
+			Gender:      in.Gender,
+			InfoVersion: userInfo.InfoVersion,
+		},
 	}, nil
 }

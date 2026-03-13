@@ -100,4 +100,5 @@ message UpdateRemarkRequest {
 
 message UpdateRemarkResponse {
     BaseResponse base = 1;
+    int64 version = 2;
 }

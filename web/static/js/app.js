@@ -1,4 +1,4 @@
-// GoChat Client v2.6.0 - Polished Edition
+// GoChat Premium Client v2.7.0
 const API_BASE = ''; 
 
 class GoChatApp {
@@ -11,6 +11,10 @@ class GoChatApp {
         this.groups = [];
         this.messages = [];
         this.requests = [];
+        
+        // Cache for versioning
+        this.knownUsers = {}; 
+        this.knownGroups = {}; 
         
         this.currentView = 'chats'; 
         this.ws = null;
@@ -25,20 +29,24 @@ class GoChatApp {
         this.bindEvents();
         if (this.token) {
             try {
+                // Verify user exists and get profile
                 const me = await this.request('/user/me');
                 this.user = me;
                 localStorage.setItem('user', JSON.stringify(this.user));
                 this.showApp();
                 await this.loadInitialData();
                 this.connectWebSocket();
-            } catch (err) { this.handleLogout(); }
+            } catch (err) {
+                console.error('Auth check failed', err);
+                this.handleLogout();
+            }
         } else {
             this.showAuth();
         }
     }
 
     bindEvents() {
-        // Auth Actions
+        // --- Auth & Profile ---
         document.getElementById('login-btn').onclick = () => this.handleLogin();
         document.getElementById('register-btn').onclick = () => this.handleRegister();
         document.getElementById('logout-btn').onclick = () => this.handleLogout();
@@ -48,18 +56,18 @@ class GoChatApp {
             tab.onclick = () => this.switchAuthTab(tab.dataset.type);
         });
 
-        // Sidebar Navigation
+        // --- Navigation ---
         document.querySelectorAll('.nav-item').forEach(item => {
             item.onclick = () => this.switchView(item.dataset.view);
         });
 
-        // Chat View Actions
+        // --- Chat Interaction ---
         document.getElementById('send-msg-btn').onclick = () => this.handleSendMessage();
         document.getElementById('chat-input').onkeypress = (e) => {
             if (e.key === 'Enter') this.handleSendMessage();
         };
 
-        // Group Features
+        // --- Group Actions ---
         document.getElementById('create-group-btn').onclick = () => {
             const name = prompt('Enter group name:');
             if (name) this.handleCreateGroup(name);
@@ -69,7 +77,7 @@ class GoChatApp {
         document.getElementById('quit-group-btn').onclick = () => this.handleQuitGroup();
         document.getElementById('dismiss-group-btn').onclick = () => this.handleDismissGroup();
 
-        // Global Search with Debounce
+        // --- Search ---
         document.getElementById('global-search').oninput = (e) => {
             clearTimeout(this.searchTimer);
             const val = e.target.value.trim();
@@ -93,7 +101,70 @@ class GoChatApp {
         return data;
     }
 
-    // --- UI Controls ---
+    // --- Authentication Logic ---
+    async handleLogin() {
+        const username = document.getElementById('login-username').value;
+        const password = document.getElementById('login-password').value;
+        const errorEl = document.getElementById('auth-error');
+        try {
+            const data = await this.request('/login', {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+            this.token = data.token;
+            this.user = data.user;
+            localStorage.setItem('token', this.token);
+            localStorage.setItem('user', JSON.stringify(this.user));
+            this.showApp();
+            await this.loadInitialData();
+            this.connectWebSocket();
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    async handleRegister() {
+        const username = document.getElementById('reg-username').value;
+        const nickname = document.getElementById('reg-nickname').value;
+        const password = document.getElementById('reg-password').value;
+        const errorEl = document.getElementById('auth-error');
+        try {
+            await this.request('/register', {
+                method: 'POST',
+                body: JSON.stringify({ username, nickname, password })
+            });
+            alert('Registration successful! Please login.');
+            this.switchAuthTab('login');
+        } catch (err) {
+            errorEl.textContent = err.message;
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    async handleForgotPassword() {
+        const username = document.getElementById('forgot-username').value;
+        const new_password = document.getElementById('forgot-new-password').value;
+        try {
+            await this.request('/forgot_password', {
+                method: 'POST',
+                body: JSON.stringify({ username, new_password })
+            });
+            alert('Password reset successful! Please login.');
+            this.switchAuthTab('login');
+        } catch (err) { alert('Failed: ' + err.message); }
+    }
+
+    handleLogout() {
+        this.stopHeartbeat();
+        if (this.ws) this.ws.close();
+        this.token = null;
+        this.user = null;
+        localStorage.clear();
+        this.showAuth();
+    }
+
+    // --- UI State Management ---
     showApp() {
         document.getElementById('auth-page').classList.add('hidden');
         document.getElementById('app-page').classList.remove('hidden');
@@ -113,12 +184,10 @@ class GoChatApp {
         document.getElementById('login-form').classList.toggle('hidden', type !== 'login');
         document.getElementById('register-form').classList.toggle('hidden', type !== 'register');
         document.getElementById('forgot-form').classList.add('hidden');
-        document.getElementById('auth-error').classList.add('hidden');
     }
 
     showForgot() {
         document.getElementById('login-form').classList.add('hidden');
-        document.getElementById('register-form').classList.add('hidden');
         document.getElementById('forgot-form').classList.remove('hidden');
     }
 
@@ -131,145 +200,125 @@ class GoChatApp {
         this.renderCurrentList();
     }
 
-    // --- Authentication ---
-    async handleLogin() {
-        const username = document.getElementById('login-username').value;
-        const password = document.getElementById('login-password').value;
-        const errorEl = document.getElementById('auth-error');
-        try {
-            const data = await this.request('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-            this.token = data.token; this.user = data.user;
-            localStorage.setItem('token', this.token);
-            localStorage.setItem('user', JSON.stringify(this.user));
-            this.showApp();
-            await this.loadInitialData();
-            this.connectWebSocket();
-        } catch (err) { errorEl.textContent = err.message; errorEl.classList.remove('hidden'); }
-    }
-
-    async handleRegister() {
-        const username = document.getElementById('reg-username').value;
-        const nickname = document.getElementById('reg-nickname').value;
-        const password = document.getElementById('reg-password').value;
-        const errorEl = document.getElementById('auth-error');
-        try {
-            await this.request('/register', { method: 'POST', body: JSON.stringify({ username, nickname, password }) });
-            alert('Registered successfully! Please sign in.');
-            this.switchAuthTab('login');
-        } catch (err) { errorEl.textContent = err.message; errorEl.classList.remove('hidden'); }
-    }
-
-    async handleForgotPassword() {
-        const username = document.getElementById('forgot-username').value;
-        const new_password = document.getElementById('forgot-new-password').value;
-        try {
-            await this.request('/forgot_password', { method: 'POST', body: JSON.stringify({ username, new_password }) });
-            alert('Password reset successful!');
-            this.switchAuthTab('login');
-        } catch (err) { alert(err.message); }
-    }
-
-    handleLogout() {
-        this.stopHeartbeat();
-        if (this.ws) this.ws.close();
-        this.token = this.user = null;
-        localStorage.clear();
-        this.showAuth();
-    }
-
-    // --- User Settings ---
-    showSettings() {
-        document.getElementById('set-nickname').value = this.user.nickname;
-        document.getElementById('set-avatar').value = this.user.avatar || '';
-        document.getElementById('set-phone').value = this.user.phone || '';
-        document.getElementById('set-email').value = this.user.email || '';
-        document.getElementById('settings-modal').classList.remove('hidden');
-    }
-
-    async handleUpdateProfile() {
-        const body = {
-            nickname: document.getElementById('set-nickname').value,
-            avatar: document.getElementById('set-avatar').value,
-            phone: document.getElementById('set-phone').value,
-            email: document.getElementById('set-email').value
-        };
-        try {
-            const newUser = await this.request('/user/me', { method: 'PUT', body: JSON.stringify(body) });
-            this.user = newUser;
-            localStorage.setItem('user', JSON.stringify(this.user));
-            this.updateMyProfile();
-            document.getElementById('settings-modal').classList.add('hidden');
-            alert('Profile updated!');
-        } catch (err) { alert(err.message); }
-    }
-
-    updateMyProfile() {
-        if (!this.user) return;
-        document.getElementById('my-name').textContent = this.user.nickname;
-        const avatarEl = document.getElementById('my-avatar');
-        avatarEl.textContent = (this.user.nickname || 'U')[0].toUpperCase();
-    }
-
     // --- Real-time Logic (WebSocket) ---
     connectWebSocket() {
         if (this.ws) this.ws.close();
-        const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${this.token}`;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws?token=${this.token}`;
+        
+        console.log('Connecting to WebSocket:', wsUrl);
         this.ws = new WebSocket(wsUrl);
 
-        this.ws.onopen = () => { this.reconnectAttempts = 0; this.startHeartbeat(); };
+        this.ws.onopen = () => {
+            console.log('WebSocket connected');
+            this.reconnectAttempts = 0;
+            this.startHeartbeat();
+        };
+
         this.ws.onmessage = (event) => {
             if (event.data === 'pong') return;
-            try { this.onReceiveRealtimeMessage(JSON.parse(event.data)); } catch (e) {}
+            try {
+                const msg = JSON.parse(event.data);
+                this.onReceiveRealtimeMessage(msg);
+            } catch (err) { console.error('WS parse error', err); }
         };
+
         this.ws.onclose = () => {
             this.stopHeartbeat();
             if (this.token) {
-                setTimeout(() => { this.reconnectAttempts++; this.connectWebSocket(); }, Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000));
+                const timeout = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+                setTimeout(() => {
+                    this.reconnectAttempts++;
+                    this.connectWebSocket();
+                }, timeout);
             }
         };
     }
 
     startHeartbeat() {
         this.stopHeartbeat();
-        this.heartbeatTimer = setInterval(() => { if (this.ws?.readyState === WebSocket.OPEN) this.ws.send('ping'); }, 30000);
+        this.heartbeatTimer = setInterval(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                this.ws.send('ping');
+            }
+        }, 30000);
     }
+
     stopHeartbeat() { if (this.heartbeatTimer) clearInterval(this.heartbeatTimer); }
 
-    onReceiveRealtimeMessage(msg) {
+    async onReceiveRealtimeMessage(msg) {
+        // --- Signal Handling (10-15) ---
         if (msg.msg_type >= 10) return this.handleSignalMessage(msg);
 
-        // Reconciliation: match optimistic local message
-        const existingIdx = this.messages.findIndex(m => m.msg_id === msg.msg_id || (m.isOptimistic && m.content === msg.content));
+        // --- Identity & Meta Reconciliation (Piggybacking) ---
+        if (msg.sender_info_version) {
+            const cached = this.knownUsers[msg.sender_id];
+            if (!cached || msg.sender_info_version > cached.version) {
+                const u = await this.request(`/users/${msg.sender_id}`);
+                this.knownUsers[u.id] = { nickname: u.nickname, avatar: u.avatar, version: u.info_version };
+            }
+        }
+
+        if (msg.group_meta_version && msg.group_id) {
+            const cached = this.knownGroups[msg.group_id];
+            if (!cached || msg.group_meta_version > cached.version) {
+                const g = await this.request(`/groups/${msg.group_id}`);
+                this.knownGroups[g.id] = { name: g.name, avatar: g.avatar, version: g.meta_version };
+                if (this.currentChat?.conversation_id === `group_${msg.group_id}`) {
+                    document.getElementById('active-chat-name').textContent = g.name;
+                }
+            }
+        }
+
+        // --- Optimistic Message Matching ---
+        const existingIdx = this.messages.findIndex(m => 
+            m.msg_id === msg.msg_id || 
+            (m.isOptimistic && m.content === msg.content && m.sender_id === msg.sender_id)
+        );
         
-        if (this.currentChat?.conversation_id === msg.conversation_id) {
-            if (existingIdx !== -1) this.messages[existingIdx] = { ...msg, isOptimistic: false };
-            else { this.messages.push(msg); this.scrollToBottom(); }
+        if (this.currentChat && this.currentChat.conversation_id === msg.conversation_id) {
+            if (existingIdx !== -1) {
+                this.messages[existingIdx] = { ...msg, isOptimistic: false };
+            } else {
+                this.messages.push(msg);
+                this.scrollToBottom();
+            }
             this.renderMessages();
         }
 
+        // Update list preview
         let conv = this.conversations.find(c => c.conversation_id === msg.conversation_id);
         if (conv) {
             conv.last_message = msg.content;
             conv.last_message_time = msg.timestamp / 1000;
             if (!this.currentChat || this.currentChat.conversation_id !== msg.conversation_id) conv.unread_count++;
             this.renderConversationList();
-        } else this.loadConversations();
+        } else {
+            this.loadConversations();
+        }
 
+        // System message refresh
         if (msg.msg_type === 6) this.loadInitialData();
     }
 
     handleSignalMessage(msg) {
+        console.log('Received signal:', msg.msg_type, msg.content);
         switch (msg.msg_type) {
-            case 10: this.loadRequests(); break;
-            case 11: alert(`Friend request ${msg.content}`); this.loadRequests(); break;
-            case 12: 
-            case 13: 
+            case 10: // Friend Apply
+                this.loadRequests(); break;
+            case 11: // Reject
+                alert(`Friend request ${msg.content}`); this.loadRequests(); break;
+            case 12: // Kicked / Left
+            case 13: // Dismissed
                 if (this.currentChat?.conversation_id === msg.conversation_id) {
                     alert(msg.msg_type === 12 ? 'Removed from group' : 'Group dismissed');
                     this.closeChat();
                 }
                 this.loadInitialData();
                 break;
+            case 14: // Immediate Identity Refresh (e.g. self update)
+            case 15: // Remark Update (Relation)
+                this.loadInitialData(); break;
         }
     }
 
@@ -280,31 +329,41 @@ class GoChatApp {
             const data = await this.request(`/${this.currentView === 'groups' ? 'groups' : 'users'}/search?keyword=${encodeURIComponent(keyword)}`);
             const container = document.getElementById('list-content');
             if (this.currentView === 'groups') {
-                container.innerHTML = (data.groups || []).map(g => `<div class="list-item">
-                    <div class="avatar-circle">G</div>
-                    <div class="list-item-info"><div class="list-item-name">${g.name}</div><div class="list-item-preview">Group ID: ${g.id}</div></div>
-                    <button class="action-btn-small" onclick="app.handleJoinGroup(${g.id})">Join</button>
-                </div>`).join('');
+                container.innerHTML = (data.groups || []).map(g => `
+                    <div class="list-item">
+                        <div class="avatar-circle">G</div>
+                        <div class="list-item-info"><div class="list-item-name">${g.name}</div></div>
+                        <button class="action-btn-small" onclick="app.restoreAndOpen('group_${g.id}', ${g.id}, true)">Join/Chat</button>
+                    </div>`).join('');
             } else {
-                container.innerHTML = (data.users || []).map(u => `<div class="list-item">
-                    <div class="avatar-circle">${(u.nickname || '?')[0].toUpperCase()}</div>
-                    <div class="list-item-info"><div class="list-item-name">${u.nickname}</div><div class="list-item-preview">User ID: ${u.id}</div></div>
-                    ${this.user.id !== u.id ? `<button class="action-btn-small" onclick="app.handleApplyFriend(${u.id})">Add</button>` : ''}
-                </div>`).join('');
+                container.innerHTML = (data.users || []).map(u => `
+                    <div class="list-item">
+                        <div class="avatar-circle">${(u.nickname || '?')[0].toUpperCase()}</div>
+                        <div class="list-item-info"><div class="list-item-name">${u.nickname}</div></div>
+                        ${this.user.id !== u.id ? `<button class="action-btn-small" onclick="app.handleApplyFriend(${u.id})">Add</button>` : ''}
+                    </div>`).join('');
             }
         } catch (e) {}
     }
 
     async handleApplyFriend(userId) {
-        const message = prompt('Note to user:');
-        if (message !== null) await this.request('/friend/apply', { method: 'POST', body: JSON.stringify({ to_user_id: userId, message }) });
+        const message = prompt('Greeting:', 'Hi, I want to be your friend.');
+        if (message !== null) {
+            try {
+                await this.request('/friend/apply', { method: 'POST', body: JSON.stringify({ to_user_id: userId, message }) });
+                alert('Request sent!');
+            } catch(e) { alert(e.message); }
+        }
     }
 
     async handleJoinGroup(groupId) {
-        const message = prompt('Note to owner:');
+        const message = prompt('Intro:', 'Request to join');
         if (message !== null) {
-            await this.request(`/groups/${groupId}/join`, { method: 'POST', body: JSON.stringify({ message }) });
-            alert('Join request sent!');
+            try {
+                await this.request(`/groups/${groupId}/join`, { method: 'POST', body: JSON.stringify({ message }) });
+                alert('Join request sent!');
+                this.loadGroups();
+            } catch(e) { alert(e.message); }
         }
     }
 
@@ -315,7 +374,44 @@ class GoChatApp {
         } catch(e) { alert(e.message); }
     }
 
-    // --- Group Actions ---
+    // --- Profile & Group Settings ---
+    showSettings() {
+        document.getElementById('set-nickname').value = this.user.nickname;
+        document.getElementById('set-avatar').value = this.user.avatar || '';
+        document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    async handleUpdateProfile() {
+        const body = { nickname: document.getElementById('set-nickname').value, avatar: document.getElementById('set-avatar').value };
+        try {
+            const newUser = await this.request('/user/me', { method: 'PUT', body: JSON.stringify(body) });
+            this.user = newUser;
+            localStorage.setItem('user', JSON.stringify(this.user));
+            this.updateMyProfile();
+            document.getElementById('settings-modal').classList.add('hidden');
+        } catch (err) { alert(err.message); }
+    }
+
+    updateMyProfile() {
+        if (!this.user) return;
+        document.getElementById('my-name').textContent = this.user.nickname;
+        document.getElementById('my-avatar').textContent = (this.user.nickname || 'U')[0].toUpperCase();
+    }
+
+    showMemberSettings() {
+        document.getElementById('member-settings-modal').classList.remove('hidden');
+    }
+
+    async handleUpdateGroupNickname() {
+        const nickname = document.getElementById('set-group-nickname').value;
+        try {
+            await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
+            document.getElementById('member-settings-modal').classList.add('hidden');
+            this.toggleMembers();
+        } catch(e) { alert(e.message); }
+    }
+
+    // --- Group Management ---
     async handleCreateGroup(name) {
         try {
             const g = await this.request('/groups', { method: 'POST', body: JSON.stringify({ name }) });
@@ -331,15 +427,13 @@ class GoChatApp {
             const memberIds = new Set(members.map(m => m.user_id));
             const candidates = this.friends.filter(f => !memberIds.has(f.user_id) && f.user_id !== this.user.id);
             
-            if (!candidates.length) return alert('No friends to invite.');
+            if (!candidates.length) return alert('No available friends to invite.');
 
             const listEl = document.getElementById('invite-list');
             listEl.innerHTML = candidates.map(f => `
                 <div class="member-item">
                     <input type="checkbox" class="invite-check" value="${f.user_id}" id="chk-${f.user_id}">
-                    <label for="chk-${f.user_id}" style="margin-left:12px; cursor:pointer; flex:1; font-weight:600;">
-                        ${f.nickname} <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">(ID:${f.user_id})</span>
-                    </label>
+                    <label for="chk-${f.user_id}" style="margin-left:12px; cursor:pointer; flex:1; font-weight:600;">${f.nickname}</label>
                 </div>
             `).join('');
             document.getElementById('invite-modal').classList.remove('hidden');
@@ -367,7 +461,7 @@ class GoChatApp {
             
             panel.innerHTML = data.members.map(m => {
                 const name = m.nickname || `User ${m.user_id}`;
-                const initial = name[0].toUpperCase();
+                const initial = (m.nickname || '?')[0].toUpperCase();
                 return `
                 <div class="member-item">
                     <div class="avatar-circle" style="width:34px; height:34px; font-size:12px; background: #cbd5e1;">${initial}</div>
@@ -383,37 +477,14 @@ class GoChatApp {
                 </div>`;
             }).join('');
             panel.classList.remove('hidden');
-        } catch (e) { console.error('Failed to load members', e); }
+        } catch (e) {}
     }
 
     async handleKickMember(userId) {
         if (confirm('Remove this member?')) {
             try {
                 await this.request(`/groups/${this.currentChat.peer_id}/kick/${userId}`, { method: 'POST' });
-                this.toggleMembers(); // refresh
-            } catch(e) { alert(e.message); }
-        }
-    }
-
-    showMemberSettings() {
-        document.getElementById('member-settings-modal').classList.remove('hidden');
-    }
-
-    async handleUpdateGroupNickname() {
-        const nickname = document.getElementById('set-group-nickname').value;
-        try {
-            await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
-            document.getElementById('member-settings-modal').classList.add('hidden');
-            this.toggleMembers();
-        } catch(e) { alert(e.message); }
-    }
-
-    async handleUpdateAnnouncement() {
-        const content = prompt('Group Announcement:');
-        if (content) {
-            try {
-                await this.request(`/groups/${this.currentChat.peer_id}/announcement`, { method: 'PUT', body: JSON.stringify({ content }) });
-                alert('Announcement updated!');
+                this.toggleMembers();
             } catch(e) { alert(e.message); }
         }
     }
@@ -443,7 +514,7 @@ class GoChatApp {
         this.loadInitialData();
     }
 
-    // --- Loading & Rendering ---
+    // --- Data Management & Rendering ---
     async loadInitialData() {
         this.updateMyProfile();
         try {
@@ -460,7 +531,6 @@ class GoChatApp {
     }
 
     renderCurrentList() {
-        const container = document.getElementById('list-content');
         if (this.currentView === 'chats') this.renderConversationList();
         else if (this.currentView === 'friends') this.renderFriendList();
         else if (this.currentView === 'groups') this.renderGroupList();
@@ -477,7 +547,7 @@ class GoChatApp {
                         <span class="list-item-name">${c.conversation_id.startsWith('group') ? 'Group' : 'User'} ${c.peer_id}</span>
                         <span class="list-item-time">${this.formatTime(c.last_message_time)}</span>
                     </div>
-                    <div class="list-item-preview">${c.last_message || 'No messages yet'}</div>
+                    <div class="list-item-preview">${c.last_message || '...'}</div>
                 </div>
                 ${c.unread_count > 0 ? `<span class="badge">${c.unread_count}</span>` : ''}
             </div>
@@ -488,13 +558,13 @@ class GoChatApp {
         const pending = this.requests.filter(r => r.status === 0);
         let html = '';
         if (pending.length) {
-            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">APPLICATIONS</div>`;
+            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9;">APPLICATIONS</div>`;
             html += pending.map(r => `
                 <div class="list-item">
                     <div class="avatar-circle">?</div>
                     <div class="list-item-info">
                         <div class="list-item-name">User ${r.from_user_id}</div>
-                        <div class="list-item-preview">${r.message || 'Wants to be friends'}</div>
+                        <div class="list-item-preview">${r.message || 'Hi'}</div>
                     </div>
                     <div style="display:flex; gap:10px;">
                         <button class="accept-btn" onclick="app.handleHandleApply(${r.id}, true)">✔</button>
@@ -503,7 +573,7 @@ class GoChatApp {
                 </div>
             `).join('');
         }
-        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">FRIENDS</div>`;
+        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9;">FRIENDS</div>`;
         html += this.friends.map(f => `
             <div class="list-item" onclick="app.openPrivateChat(${f.user_id})">
                 <div class="avatar-circle">${(f.nickname || 'U')[0].toUpperCase()}</div>
@@ -523,7 +593,7 @@ class GoChatApp {
                 <div class="avatar-circle">G</div>
                 <div class="list-item-info">
                     <div class="list-item-name">${g.name}</div>
-                    <div class="list-item-preview">${g.description || 'GoChat Group'}</div>
+                    <div class="list-item-preview">Group ID: ${g.id}</div>
                 </div>
                 <button class="action-btn-small" onclick="event.stopPropagation(); app.openGroupChat(${g.id})">Chat</button>
             </div>
@@ -550,7 +620,10 @@ class GoChatApp {
             if (this.currentChat.isGroup) body.group_id = this.currentChat.peer_id;
             else body.receiver_id = this.currentChat.peer_id;
             await this.request('/messages/send', { method: 'POST', body: JSON.stringify(body) });
-        } catch (e) { this.messages = this.messages.filter(m => m.msg_id !== opt.msg_id); this.renderMessages(); alert(e.message); }
+        } catch (e) {
+            this.messages = this.messages.filter(m => m.msg_id !== opt.msg_id);
+            this.renderMessages(); alert(e.message);
+        }
     }
 
     async openChat(id, pId, isG) {
@@ -571,8 +644,6 @@ class GoChatApp {
             const isOwner = group?.owner_id === this.user.id;
             document.getElementById('dismiss-group-btn').classList.toggle('hidden', !isOwner);
             document.getElementById('quit-group-btn').classList.toggle('hidden', isOwner);
-            document.getElementById('active-chat-name').onclick = isOwner ? () => this.handleUpdateAnnouncement() : null;
-            document.getElementById('active-chat-name').style.cursor = isOwner ? 'pointer' : 'default';
         } else groupActions.classList.add('hidden');
         
         try {
@@ -582,8 +653,19 @@ class GoChatApp {
         } catch(e) {}
     }
 
-    openPrivateChat(userId) { this.switchView('chats'); this.openChat(this.user.id < userId ? `conv_${this.user.id}_${userId}` : `conv_${userId}_${this.user.id}`, userId, false); }
-    openGroupChat(groupId) { this.switchView('chats'); this.openChat(`group_${groupId}`, groupId, true); }
+    async restoreAndOpen(id, pId, isG) {
+        try {
+            await this.request('/conversations/restore', { method: 'POST', body: JSON.stringify({ conversation_id: id }) });
+            this.switchView('chats');
+            this.openChat(id, pId, isG);
+        } catch(e) { this.openChat(id, pId, isG); }
+    }
+
+    openPrivateChat(userId) { 
+        const id = this.user.id < userId ? `conv_${this.user.id}_${userId}` : `conv_${userId}_${this.user.id}`;
+        this.restoreAndOpen(id, userId, false); 
+    }
+    openGroupChat(groupId) { this.restoreAndOpen(`group_${groupId}`, groupId, true); }
 
     updateBadge() {
         const badge = document.getElementById('request-badge');

@@ -47,3 +47,8 @@ func (s *MessageServiceServer) SaveMessage(ctx context.Context, in *pb.SaveMessa
 	l := logic.NewSaveMessageLogic(ctx, s.svcCtx)
 	return l.SaveMessage(in)
 }
+
+func (s *MessageServiceServer) RestoreConversation(ctx context.Context, in *pb.RestoreConversationRequest) (*pb.RestoreConversationResponse, error) {
+	l := logic.NewRestoreConversationLogic(ctx, s.svcCtx)
+	return l.RestoreConversation(in)
+}

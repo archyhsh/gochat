@@ -14,8 +14,9 @@ type (
 		MsgId          string  `json:"msg_id"`
 		SenderId       int64   `json:"sender_id"`
 		Content        string  `json:"content"`
-		MsgType        int     `json:"msg_type"`
-		Timestamp      int64   `json:"timestamp"`
+		MsgType         int     `json:"msg_type"`
+		Timestamp       int64   `json:"timestamp"`
+		RelationVersion int64   `json:"relation_version,optional"`
 	}
 	PushResponse {
 		Success bool `json:"success"`

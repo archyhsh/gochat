@@ -57,6 +57,7 @@ type (
 		IsTop          int64     `db:"is_top"`
 		IsMuted        int64     `db:"is_muted"`
 		IsDeleted      int64     `db:"is_deleted"`
+		Version        int64     `db:"version"`
 		CreatedAt      time.Time `db:"created_at"`
 		UpdatedAt      time.Time `db:"updated_at"`
 	}
@@ -125,8 +126,8 @@ func (m *defaultUserConversationModel) Insert(ctx context.Context, data *UserCon
 	userConversationIdKey := fmt.Sprintf("%s%v", cacheUserConversationIdPrefix, data.Id)
 	userConversationUserIdConversationIdKey := fmt.Sprintf("%s%v:%v", cacheUserConversationUserIdConversationIdPrefix, data.UserId, data.ConversationId)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, userConversationRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.UserId, data.ConversationId, data.PeerId, data.UnreadCount, data.LastMsgId, data.LastMsgTime, data.LastMsgContent, data.LastMsgType, data.LastSenderId, data.ReadSequence, data.IsTop, data.IsMuted, data.IsDeleted)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, userConversationRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.UserId, data.ConversationId, data.PeerId, data.UnreadCount, data.LastMsgId, data.LastMsgTime, data.LastMsgContent, data.LastMsgType, data.LastSenderId, data.ReadSequence, data.IsTop, data.IsMuted, data.IsDeleted, data.Version)
 	}, userConversationIdKey, userConversationUserIdConversationIdKey)
 	return ret, err
 }
@@ -141,7 +142,7 @@ func (m *defaultUserConversationModel) Update(ctx context.Context, newData *User
 	userConversationUserIdConversationIdKey := fmt.Sprintf("%s%v:%v", cacheUserConversationUserIdConversationIdPrefix, data.UserId, data.ConversationId)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, userConversationRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.UserId, newData.ConversationId, newData.PeerId, newData.UnreadCount, newData.LastMsgId, newData.LastMsgTime, newData.LastMsgContent, newData.LastMsgType, newData.LastSenderId, newData.ReadSequence, newData.IsTop, newData.IsMuted, newData.IsDeleted, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.UserId, newData.ConversationId, newData.PeerId, newData.UnreadCount, newData.LastMsgId, newData.LastMsgTime, newData.LastMsgContent, newData.LastMsgType, newData.LastSenderId, newData.ReadSequence, newData.IsTop, newData.IsMuted, newData.IsDeleted, newData.Version, newData.Id)
 	}, userConversationIdKey, userConversationUserIdConversationIdKey)
 	return err
 }

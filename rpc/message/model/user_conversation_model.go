@@ -20,6 +20,8 @@ type (
 		GetUserConversationsByUserId(ctx context.Context, userId int64) ([]*UserConversationWithSeq, error)
 		UpdateNewPrivateMsg(ctx context.Context, session sqlx.Session, userId int64, peerId int64, conversationId string, lastMsg *MessageTemplate, incUnread bool) error
 		UpdateReadSequence(ctx context.Context, userId int64, conversationId string, seq int64) error
+		UpdateVersion(ctx context.Context, userId int64, conversationId string, version int64) error
+		Restore(ctx context.Context, userId int64, conversationId string) error
 	}
 
 	customUserConversationModel struct {
@@ -70,8 +72,8 @@ func (m *customUserConversationModel) UpdateNewPrivateMsg(ctx context.Context, s
 		INSERT INTO %s (
 			user_id, conversation_id, peer_id, 
 			last_msg_id, last_msg_time, last_msg_content, 
-			last_msg_type, last_sender_id, unread_count, is_deleted, read_sequence
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
+			last_msg_type, last_sender_id, unread_count, is_deleted, read_sequence, version
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
 		ON DUPLICATE KEY UPDATE 
 			last_msg_id = VALUES(last_msg_id),
 			last_msg_time = VALUES(last_msg_time),
@@ -98,5 +100,17 @@ func (m *customUserConversationModel) UpdateNewPrivateMsg(ctx context.Context, s
 func (m *customUserConversationModel) UpdateReadSequence(ctx context.Context, userId int64, conversationId string, seq int64) error {
 	query := fmt.Sprintf("UPDATE %s SET read_sequence = ?, unread_count = 0 WHERE user_id = ? AND conversation_id = ?", m.table)
 	_, err := m.ExecNoCacheCtx(ctx, query, seq, userId, conversationId)
+	return err
+}
+
+func (m *customUserConversationModel) UpdateVersion(ctx context.Context, userId int64, conversationId string, version int64) error {
+	query := fmt.Sprintf("UPDATE %s SET version = ? WHERE user_id = ? AND conversation_id = ?", m.table)
+	_, err := m.ExecNoCacheCtx(ctx, query, version, userId, conversationId)
+	return err
+}
+
+func (m *customUserConversationModel) Restore(ctx context.Context, userId int64, conversationId string) error {
+	query := fmt.Sprintf("UPDATE %s SET is_deleted = 0, version = ? WHERE user_id = ? AND conversation_id = ?", m.table)
+	_, err := m.ExecNoCacheCtx(ctx, query, time.Now().UnixNano(), userId, conversationId)
 	return err
 }

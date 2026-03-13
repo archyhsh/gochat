@@ -65,6 +65,7 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 	}
 
 	group.Announcement = in.Content
+	group.MetaVersion = time.Now().UnixNano()
 	err = l.svcCtx.GroupModel.Update(l.ctx, group)
 	if err != nil {
 		l.Errorf("UpdateAnnouncement failed: %v", err)
@@ -74,16 +75,15 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
-			"action":    "updateAnnouncement",
+			"action":    "update_announcement",
 			"group_id":  in.GroupId,
+			"user_id":   userID,
+			"version":   group.MetaVersion,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		err = l.svcCtx.Producer.Send([]byte(key), data)
-		if err != nil {
-			l.Errorf("Failed to send Kafka event for UpdateAnnouncement: %v", err)
-		}
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
 	}
 
 	return &pb.UpdateAnnouncementResponse{

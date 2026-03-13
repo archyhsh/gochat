@@ -54,6 +54,7 @@ type (
 		Status       int64     `db:"status"` // status: 0closed 1normal
 		CreatedAt    time.Time `db:"created_at"`
 		UpdatedAt    time.Time `db:"updated_at"`
+		MetaVersion  int64     `db:"meta_version"`
 	}
 )
 
@@ -120,8 +121,8 @@ func (m *defaultGroupModel) Insert(ctx context.Context, data *Group) (sql.Result
 	groupIdKey := fmt.Sprintf("%s%v", cacheGroupIdPrefix, data.Id)
 	groupNameKey := fmt.Sprintf("%s%v", cacheGroupNamePrefix, data.Name)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?)", m.table, groupRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Name, data.Avatar, data.Description, data.OwnerId, data.MaxMembers, data.MemberCount, data.Announcement, data.Status)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, groupRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.Name, data.Avatar, data.Description, data.OwnerId, data.MaxMembers, data.MemberCount, data.Announcement, data.Status, data.MetaVersion)
 	}, groupIdKey, groupNameKey)
 	return ret, err
 }
@@ -136,7 +137,7 @@ func (m *defaultGroupModel) Update(ctx context.Context, newData *Group) error {
 	groupNameKey := fmt.Sprintf("%s%v", cacheGroupNamePrefix, data.Name)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, groupRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Name, newData.Avatar, newData.Description, newData.OwnerId, newData.MaxMembers, newData.MemberCount, newData.Announcement, newData.Status, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.Name, newData.Avatar, newData.Description, newData.OwnerId, newData.MaxMembers, newData.MemberCount, newData.Announcement, newData.Status, newData.MetaVersion, newData.Id)
 	}, groupIdKey, groupNameKey)
 	return err
 }

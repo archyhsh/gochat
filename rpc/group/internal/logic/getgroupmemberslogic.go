@@ -81,11 +81,12 @@ func (l *GetGroupMembersLogic) GetGroupMembers(in *pb.GetGroupMembersRequest) (*
 		}
 
 		pbMembers = append(pbMembers, &pb.GroupMember{
-			UserId:   m.UserId,
-			Nickname: displayNick,
-			Avatar:   avatar,
-			Role:     int32(m.Role),
-			JoinedAt: m.JoinedAt.Unix(),
+			UserId:      m.UserId,
+			Nickname:    displayNick,
+			Avatar:      avatar,
+			Role:        int32(m.Role),
+			JoinedAt:    m.JoinedAt.Unix(),
+			InfoVersion: m.InfoVersion,
 		})
 	}
 

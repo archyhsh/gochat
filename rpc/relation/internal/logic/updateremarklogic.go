@@ -2,7 +2,10 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/relation/internal/svc"
@@ -53,9 +56,30 @@ func (l *UpdateRemarkLogic) UpdateRemark(in *pb.UpdateRemarkRequest) (*pb.Update
 		return nil, status.Error(codes.NotFound, "target is not your friend")
 	}
 	friendship.Remark = in.Remark
+	friendship.Version = time.Now().UnixNano()
 	err = l.svcCtx.FriendshipModel.Update(l.ctx, friendship)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update remark")
 	}
-	return &pb.UpdateRemarkResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}}, nil
+
+	// Send version update signal to self (multi-device sync)
+	if l.svcCtx.Producer != nil {
+		event := map[string]interface{}{
+			"type":      "friend_event",
+			"action":    "update_remark",
+			"user_id":   userId,
+			"friend_id": in.FriendId,
+			"remark":    in.Remark,
+			"version":   friendship.Version,
+			"timestamp": time.Now().Unix(),
+		}
+		data, _ := json.Marshal(event)
+		key := fmt.Sprintf("remark_%d_%d", userId, in.FriendId)
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
+	}
+
+	return &pb.UpdateRemarkResponse{
+		Base:    &pb.BaseResponse{Code: 200, Message: "Success"},
+		Version: friendship.Version,
+	}, nil
 }

@@ -28,12 +28,13 @@ func NewPushMessageLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PushM
 
 func (l *PushMessageLogic) PushMessage(req *types.PushRequest) (resp *types.PushResponse, err error) {
 	data := map[string]interface{}{
-		"msg_id":          req.MsgId,
-		"conversation_id": req.ConversationId,
-		"sender_id":       req.SenderId,
-		"content":         req.Content,
-		"msg_type":        req.MsgType,
-		"timestamp":       req.Timestamp,
+		"msg_id":           req.MsgId,
+		"conversation_id":  req.ConversationId,
+		"sender_id":        req.SenderId,
+		"content":          req.Content,
+		"msg_type":         req.MsgType,
+		"timestamp":        req.Timestamp,
+		"relation_version": req.RelationVersion,
 	}
 	jsonData, _ := json.Marshal(data)
 

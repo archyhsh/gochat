@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/message/model"
@@ -50,7 +51,11 @@ func (l *ClearUnreadLogic) ClearUnread(in *pb.ClearUnreadRequest) (*pb.ClearUnre
 		return nil, status.Error(codes.Internal, "Internal database error")
 	}
 
+	version := time.Now().UnixNano()
 	err = l.svcCtx.UserConversationModel.UpdateReadSequence(l.ctx, userId, in.ConversationId, conv.LatestSeq)
+	if err == nil {
+		_ = l.svcCtx.UserConversationModel.UpdateVersion(l.ctx, userId, in.ConversationId, version)
+	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to clear unread: "+err.Error())
 	}

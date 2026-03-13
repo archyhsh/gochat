@@ -44,6 +44,9 @@ type (
 		MsgId     string `json:"msg_id"`
 		Timestamp int64  `json:"timestamp"`
 	}
+	RestoreConversationRequest {
+		ConversationId string `json:"conversation_id"`
+	}
 )
 
 @server (
@@ -65,4 +68,7 @@ service gateway {
 
 	@handler SendMessage
 	post /messages/send (SendMessageRequest) returns (SendMessageResponse)
+
+	@handler RestoreConversation
+	post /conversations/restore (RestoreConversationRequest) returns (CommonResponse)
 }
