@@ -201,6 +201,10 @@ type RegisterRequest struct {
 	Nickname string `json:"nickname"`
 }
 
+type RestoreConversationRequest struct {
+	ConversationId string `json:"conversation_id"`
+}
+
 type SearchGroupsRequest struct {
 	Keyword string `json:"keyword"`
 }

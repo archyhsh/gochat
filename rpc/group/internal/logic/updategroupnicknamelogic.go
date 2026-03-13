@@ -2,8 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
-	"strconv"
 	"time"
 
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
@@ -40,20 +38,6 @@ func (l *UpdateGroupNicknameLogic) UpdateGroupNickname(in *pb.UpdateGroupNicknam
 		metaVersion = time.Now().UnixNano()
 		group.MetaVersion = metaVersion
 		_ = l.svcCtx.GroupModel.Update(l.ctx, group)
-	}
-
-	// Send group nickname update event
-	if l.svcCtx.Producer != nil {
-		event := map[string]interface{}{
-			"type":      "group_nickname_update",
-			"group_id":  in.GroupId,
-			"user_id":   in.UserId,
-			"nickname":  in.Nickname,
-			"version":   metaVersion,
-			"timestamp": time.Now().Unix(),
-		}
-		data, _ := json.Marshal(event)
-		_ = l.svcCtx.Producer.Send([]byte(strconv.FormatInt(in.GroupId, 10)), data)
 	}
 
 	return &pb.UpdateGroupNicknameResponse{

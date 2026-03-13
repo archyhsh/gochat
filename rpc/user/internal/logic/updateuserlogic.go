@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"strconv"
 	"time"
 
@@ -59,19 +58,6 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 	err = l.svcCtx.UserModel.Update(l.ctx, userInfo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update user info: "+err.Error())
-	}
-
-	// Send global nickname update event
-	if l.svcCtx.Producer != nil {
-		event := map[string]interface{}{
-			"type":      "nickname_update",
-			"user_id":   userId,
-			"nickname":  in.Nickname,
-			"version":   userInfo.InfoVersion,
-			"timestamp": time.Now().Unix(),
-		}
-		data, _ := json.Marshal(event)
-		_ = l.svcCtx.Producer.Send([]byte(strconv.FormatInt(userId, 10)), data)
 	}
 
 	return &pb.UpdateUserResponse{

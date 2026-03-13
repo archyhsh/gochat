@@ -49,12 +49,13 @@ func (l *UpdateRemarkLogic) UpdateRemark(in *pb.UpdateRemarkRequest) (*pb.Update
 		return nil, status.Error(codes.InvalidArgument, "cannot block yourself")
 	}
 	friendship, err := l.svcCtx.FriendshipModel.FindOneByUserIdFriendId(l.ctx, userId, in.FriendId)
-	if err == nil && err != model.ErrNotFound {
-		return nil, status.Error(codes.Internal, "cannot find friendship")
+	if err != nil {
+		if err == model.ErrNotFound {
+			return nil, status.Error(codes.NotFound, "target is not your friend")
+		}
+		return nil, status.Error(codes.Internal, "failed to query friendship")
 	}
-	if err == nil && err == model.ErrNotFound {
-		return nil, status.Error(codes.NotFound, "target is not your friend")
-	}
+
 	friendship.Remark = in.Remark
 	friendship.Version = time.Now().UnixNano()
 	err = l.svcCtx.FriendshipModel.Update(l.ctx, friendship)
