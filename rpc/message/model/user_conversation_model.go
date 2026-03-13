@@ -18,6 +18,7 @@ type (
 		userConversationModel
 		FindOneByUserIdConversationId(ctx context.Context, userId int64, conversationId string) (*UserConversation, error)
 		GetUserConversationsByUserId(ctx context.Context, userId int64) ([]*UserConversationWithSeq, error)
+		SearchUserConversationsByUserId(ctx context.Context, userId int64) ([]*UserConversationWithSeq, error)
 		UpdateNewPrivateMsg(ctx context.Context, session sqlx.Session, userId int64, peerId int64, conversationId string, lastMsg *MessageTemplate, incUnread bool) error
 		UpdateReadSequence(ctx context.Context, userId int64, conversationId string, seq int64) error
 		UpdateVersion(ctx context.Context, userId int64, conversationId string, version int64) error
@@ -60,6 +61,27 @@ func (m *customUserConversationModel) GetUserConversationsByUserId(ctx context.C
 		FROM %s uc 
 		INNER JOIN conversation c ON uc.conversation_id = c.conversation_id 
 		WHERE uc.user_id = ? AND uc.is_deleted = 0
+		ORDER BY uc.is_top DESC, c.last_msg_time DESC
+	`, m.table)
+	var resp []*UserConversationWithSeq
+	err := m.QueryRowsNoCacheCtx(ctx, &resp, query, userId)
+	return resp, err
+}
+
+func (m *customUserConversationModel) SearchUserConversationsByUserId(ctx context.Context, userId int64) ([]*UserConversationWithSeq, error) {
+	// For search, we include deleted ones.
+	query := fmt.Sprintf(`
+		SELECT 
+			uc.*, 
+			c.last_msg_id as global_last_msg_id,
+			c.last_msg_time as global_last_msg_time,
+			c.last_msg_content as global_last_msg_content,
+			c.last_msg_type as global_last_msg_type,
+			c.last_sender_id as global_last_sender_id,
+			c.latest_seq 
+		FROM %s uc 
+		INNER JOIN conversation c ON uc.conversation_id = c.conversation_id 
+		WHERE uc.user_id = ?
 		ORDER BY uc.is_top DESC, c.last_msg_time DESC
 	`, m.table)
 	var resp []*UserConversationWithSeq

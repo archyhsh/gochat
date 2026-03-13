@@ -16,8 +16,7 @@ Cache:
 Kafka:
   Brokers:
     - 127.0.0.1:9092
-  Topics:
-    Group: user-topic
+  Topic: user-topic
 JWT:
   AccessSecret: ${JWT_SECRET:gochat-default-secret-key}
   AccessExpire: 604800

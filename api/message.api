@@ -19,6 +19,9 @@ type (
 		LastMessage     string `json:"last_message"`
 		LastMessageTime int64  `json:"last_message_time"`
 	}
+	GetConversationsRequest {
+		Keyword string `form:"keyword,optional"`
+	}
 	ConversationsResponse {
 		Conversations []Conversation `json:"conversations"`
 	}
@@ -58,7 +61,7 @@ service gateway {
 	get /messages (GetMessagesRequest) returns (MessagesResponse)
 
 	@handler GetConversations
-	get /conversations returns (ConversationsResponse)
+	get /conversations (GetConversationsRequest) returns (ConversationsResponse)
 
 	@handler ClearUnread
 	post /conversations/clear_unread (ClearUnreadRequest) returns (CommonResponse)

@@ -12,16 +12,16 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-func GetConversationsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+func RestoreConversationHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.GetConversationsRequest
+		var req types.RestoreConversationRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := message.NewGetConversationsLogic(r.Context(), svcCtx)
-		resp, err := l.GetConversations(&req)
+		l := message.NewRestoreConversationLogic(r.Context(), svcCtx)
+		resp, err := l.RestoreConversation(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

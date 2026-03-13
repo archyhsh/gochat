@@ -87,6 +87,10 @@ type GetAnnouncementRequest struct {
 	Id int64 `path:"id"`
 }
 
+type GetConversationsRequest struct {
+	Keyword string `form:"keyword,optional"`
+}
+
 type GetGroupInfoRequest struct {
 	GroupId int64 `path:"id"`
 }

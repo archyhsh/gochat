@@ -496,6 +496,7 @@ func (x *GetMessagesResponse) GetMessages() []*ChatMessage {
 type GetConversationsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Keyword       string                 `protobuf:"bytes,2,opt,name=keyword,proto3" json:"keyword,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -535,6 +536,13 @@ func (x *GetConversationsRequest) GetLimit() int32 {
 		return x.Limit
 	}
 	return 0
+}
+
+func (x *GetConversationsRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
 }
 
 type GetConversationsResponse struct {
@@ -1047,9 +1055,10 @@ const file_message_proto_rawDesc = "" +
 	"\rlast_sequence\x18\x03 \x01(\x05R\flastSequence\"x\n" +
 	"\x13GetMessagesResponse\x12,\n" +
 	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\x123\n" +
-	"\bmessages\x18\x02 \x03(\v2\x17.gochat.rpc.ChatMessageR\bmessages\"/\n" +
+	"\bmessages\x18\x02 \x03(\v2\x17.gochat.rpc.ChatMessageR\bmessages\"I\n" +
 	"\x17GetConversationsRequest\x12\x14\n" +
-	"\x05limit\x18\x01 \x01(\x05R\x05limit\"\x8c\x01\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x18\n" +
+	"\akeyword\x18\x02 \x01(\tR\akeyword\"\x8c\x01\n" +
 	"\x18GetConversationsResponse\x12,\n" +
 	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\x12B\n" +
 	"\rconversations\x18\x02 \x03(\v2\x1c.gochat.rpc.ConversationInfoR\rconversations\"=\n" +

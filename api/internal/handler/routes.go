@@ -120,6 +120,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: message.ClearUnreadHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPost,
+					Path:    "/conversations/restore",
+					Handler: message.RestoreConversationHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodGet,
 					Path:    "/messages",
 					Handler: message.GetMessagesHandler(serverCtx),
