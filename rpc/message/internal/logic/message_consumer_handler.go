@@ -56,14 +56,12 @@ func (h *MessageConsumerHandler) handleChatMessage(ctx context.Context, data []b
 		}
 	}
 
-	// --- PIGGYBACKING: Fetch Latest Versions for Client Auto-Discovery ---
-	// Fetch Sender Info Version
+	// Piggybacking: Fetch versions
 	userResp, err := h.svcCtx.UserRpc.GetUser(ctx, &userservice.GetUserRequest{UserId: event.SenderId})
 	if err == nil && userResp.User != nil {
 		event.SenderInfoVersion = userResp.User.InfoVersion
 	}
 
-	// Fetch Group Meta Version if applicable
 	if event.GroupId > 0 {
 		groupResp, err := h.svcCtx.GroupRpc.GetGroupInfo(ctx, &groupservice.GetGroupInfoRequest{GroupId: event.GroupId})
 		if err == nil && groupResp.Group != nil {
@@ -97,8 +95,6 @@ func (h *MessageConsumerHandler) handleSystemEvent(ctx context.Context, data []b
 		return h.handleFriendEvent(ctx, raw)
 	case "group_event":
 		return h.handleGroupEvent(ctx, raw)
-		// NOTICE: nickname_update and group_nickname_update active broadcasts are REMOVED.
-		// We rely on piggybacking versions in standard chat messages (Targeted Pull).
 	}
 	return nil
 }
@@ -115,7 +111,7 @@ func (h *MessageConsumerHandler) handleRemarkUpdate(ctx context.Context, event m
 		MsgType:         15, // Remark Sync Signal
 		Content:         remark,
 		Timestamp:       time.Now().UnixMilli(),
-		TargetIds:       []int64{userId}, // Only notify the user who set the remark
+		TargetIds:       []int64{userId},
 		RelationVersion: version,
 	}
 	h.pushToGateways(ctx, evt)
@@ -131,7 +127,7 @@ func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event ma
 		evt := &pb.ChatMessageEvent{
 			MsgId:     strconv.FormatInt(time.Now().UnixNano(), 10),
 			SenderId:  fromId,
-			MsgType:   10, // Friend Apply Signal
+			MsgType:   10,
 			Content:   event["message"].(string),
 			Timestamp: time.Now().UnixMilli(),
 			TargetIds: []int64{toId},
@@ -144,7 +140,7 @@ func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event ma
 		evt := &pb.ChatMessageEvent{
 			MsgId:     strconv.FormatInt(time.Now().UnixNano(), 10),
 			SenderId:  toId,
-			MsgType:   11, // Reject Signal
+			MsgType:   11,
 			Content:   "declined your friend request",
 			Timestamp: time.Now().UnixMilli(),
 			TargetIds: []int64{fromId},
@@ -157,14 +153,13 @@ func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event ma
 		return nil
 	}
 
-	// Accept case: Send neutral message and activate conversation for both
 	msgId := strconv.FormatInt(snowflake.MustNextID(), 10)
 	convId := h.getPrivateConvId(fromId, toId)
 	evt := &pb.ChatMessageEvent{
 		MsgId:          msgId,
 		ConversationId: convId,
 		SenderId:       0,
-		MsgType:        6, // System message
+		MsgType:        6,
 		Content:        "You are now friends. Say hello!",
 		Timestamp:      time.Now().UnixMilli(),
 		TargetIds:      []int64{fromId, toId},
@@ -193,26 +188,40 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 		content = fmt.Sprintf("%s joined the group", actorName)
 		targets = []int64{actorId}
 	case "invite":
-		var inviteeNames []string
-		targets = []int64{actorId} // Include inviter for feedback/activation
+		var inviteeIds []int64
+		targets = []int64{actorId}
 		if rawIds, ok := event["member_ids"].([]interface{}); ok {
 			for _, rid := range rawIds {
 				uid := h.toInt64(rid)
-				inviteeNames = append(inviteeNames, h.getUserNickname(ctx, uid))
-				targets = append(targets, uid) // Target the new members for initialization
+				inviteeIds = append(inviteeIds, uid)
+				targets = append(targets, uid)
+			}
+		}
+
+		// Batch fetch nicknames to avoid N+1 RPC
+		var inviteeNames []string
+		if len(inviteeIds) > 0 {
+			userResp, err := h.svcCtx.UserRpc.GetUsersByIds(ctx, &userservice.GetUsersByIdsRequest{UserIds: inviteeIds})
+			if err == nil {
+				for _, u := range userResp.Users {
+					inviteeNames = append(inviteeNames, u.Nickname)
+				}
+			} else {
+				for _, uid := range inviteeIds {
+					inviteeNames = append(inviteeNames, fmt.Sprintf("User %d", uid))
+				}
 			}
 		}
 		content = fmt.Sprintf("%s invited %s to the group", actorName, strings.Join(inviteeNames, ", "))
 	case "quit", "kick":
 		content = "Member left the group"
-		signalType = 12 // Kicked/Left signal
+		signalType = 12
 		targets = []int64{actorId}
 	case "dismiss":
 		content = "This group has been dismissed"
-		signalType = 13 // Dismiss signal
+		signalType = 13
 	case "update_announcement":
 		content = "Group announcement updated"
-		// Versioning will handle auto-discovery of new content
 	default:
 		return nil
 	}
