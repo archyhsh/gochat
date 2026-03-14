@@ -1,4 +1,4 @@
-// GoChat Premium Client v2.8.0 - Master Build
+// GoChat Premium Client v2.8.1 - Final Corrected Master Build
 const API_BASE = ''; 
 
 class GoChatApp {
@@ -11,8 +11,9 @@ class GoChatApp {
         this.groups = [];
         this.messages = [];
         this.requests = []; // Friend requests
-        this.groupRequests = []; // Inbound group join requests
+        this.groupRequests = []; // Group join requests (for owner)
         
+        // Identity & Meta Caching
         this.knownUsers = {}; 
         this.knownGroups = {}; 
         
@@ -40,7 +41,7 @@ class GoChatApp {
     }
 
     bindEvents() {
-        // --- Auth & Profile ---
+        // Auth Actions
         document.getElementById('login-btn').onclick = () => this.handleLogin();
         document.getElementById('register-btn').onclick = () => this.handleRegister();
         document.getElementById('logout-btn').onclick = () => this.handleLogout();
@@ -49,11 +50,11 @@ class GoChatApp {
         document.querySelectorAll('.auth-tab').forEach(tab => tab.onclick = () => this.switchAuthTab(tab.dataset.type));
         document.querySelectorAll('.nav-item').forEach(item => item.onclick = () => this.switchView(item.dataset.view));
 
-        // --- Chat Controls ---
+        // Message Actions
         document.getElementById('send-msg-btn').onclick = () => this.handleSendMessage();
         document.getElementById('chat-input').onkeypress = (e) => { if (e.key === 'Enter') this.handleSendMessage(); };
 
-        // --- Group Management ---
+        // Group Controls
         document.getElementById('create-group-btn').onclick = () => {
             const name = prompt('Enter group name:');
             if (name) this.handleCreateGroup(name);
@@ -63,7 +64,7 @@ class GoChatApp {
         document.getElementById('quit-group-btn').onclick = () => this.handleQuitGroup();
         document.getElementById('dismiss-group-btn').onclick = () => this.handleDismissGroup();
 
-        // --- Global Search ---
+        // Global Search with Dynamic Logic
         document.getElementById('global-search').oninput = (e) => {
             clearTimeout(this.searchTimer);
             const val = e.target.value.trim();
@@ -85,7 +86,7 @@ class GoChatApp {
         return data;
     }
 
-    // --- View Controllers ---
+    // --- View Controls ---
     showApp() {
         document.getElementById('auth-page').classList.add('hidden');
         document.getElementById('app-page').classList.remove('hidden');
@@ -104,62 +105,98 @@ class GoChatApp {
     }
     showForgot() {
         document.getElementById('login-form').classList.add('hidden');
+        document.getElementById('register-form').classList.add('hidden');
         document.getElementById('forgot-form').classList.remove('hidden');
     }
+
     switchView(view) {
         this.currentView = view;
         const searchInput = document.getElementById('global-search');
+        
+        // IMPLEMENTATION: Differentiated Search Logic Placeholders
         const placeholders = {
-            'chats': 'Search chats by remark or group name...',
-            'friends': 'Find new users by ID or nickname...',
-            'groups': 'Discover public groups by name...'
+            'chats': 'Search chats by name or hidden history...',
+            'friends': 'Search users to add by nickname...',
+            'groups': 'Search public groups to join...'
         };
         searchInput.placeholder = placeholders[view] || 'Search...';
         searchInput.value = '';
+
         document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view));
         this.renderCurrentList();
     }
 
-    // --- Search & Interaction ---
+    // --- THE SMART THREE-IN-ONE SEARCH ENGINE ---
     async handleSearch(keyword) {
         if (!keyword) return this.renderCurrentList();
+        
         try {
+            // Path selection based on active functionality bar
             const path = this.currentView === 'chats' ? `/conversations?keyword=${encodeURIComponent(keyword)}` :
                          this.currentView === 'friends' ? `/users/search?keyword=${encodeURIComponent(keyword)}` :
                          `/groups/search?keyword=${encodeURIComponent(keyword)}`;
+
             const data = await this.request(path);
             this.renderSearchResults(data.conversations || data.users || data.groups || [], this.currentView);
-        } catch (e) {}
+        } catch (e) { console.error('Search Logic Error', e); }
     }
 
     renderSearchResults(results, context) {
         const container = document.getElementById('list-content');
-        if (!results.length) return container.innerHTML = `<div class="empty-state">No matching results</div>`;
-        container.innerHTML = results.map(item => {
-            if (context === 'chats') return `
-                <div class="list-item" onclick="app.restoreAndOpen('${item.conversation_id}', ${item.peer_id}, ${item.conversation_id.startsWith('group_')})">
-                    <div class="avatar-circle">${item.conversation_id.startsWith('group') ? 'G' : 'U'}</div>
+        // SECURITY FILTER: Remove self from discovery results
+        const filtered = results.filter(item => {
+            const id = item.id || item.peer_id || item.group_id;
+            return id !== this.user.id;
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = `<div class="empty-state">No matching results found</div>`;
+            return;
+        }
+
+        container.innerHTML = filtered.map(item => {
+            if (context === 'chats') {
+                const isGroup = item.conversation_id.startsWith('group_');
+                return `
+                <div class="list-item" onclick="app.restoreAndOpen('${item.conversation_id}', ${item.peer_id}, ${isGroup})">
+                    <div class="avatar-circle">${isGroup ? 'G' : 'U'}</div>
                     <div class="list-item-info">
                         <div class="list-item-name">${item.conversation_id}</div>
                         <div class="list-item-preview">Click to restore/open</div>
                     </div>
                 </div>`;
-            if (context === 'friends') return `
+            }
+
+            if (context === 'friends') {
+                const isFriend = this.friends.some(f => f.user_id === item.id);
+                return `
                 <div class="list-item">
                     <div class="avatar-circle">${(item.nickname || '?')[0].toUpperCase()}</div>
                     <div class="list-item-info"><div class="list-item-name">${item.nickname}</div><div class="list-item-preview">ID: ${item.id}</div></div>
-                    ${this.user.id !== item.id ? `<button class="action-btn-small" onclick="app.handleApplyFriend(${item.id})">Add</button>` : ''}
+                    ${isFriend ? 
+                        `<span class="member-role-tag role-me" style="background:#cbd5e1; color:#475569;">Friend</span>` : 
+                        `<button class="action-btn-small" onclick="app.handleApplyFriend(${item.id})">Add</button>`
+                    }
                 </div>`;
-            return `
+            }
+
+            if (context === 'groups') {
+                const isJoined = this.groups.some(g => g.id === item.id || g.id === item.group_id);
+                const gId = item.id || item.group_id;
+                return `
                 <div class="list-item">
                     <div class="avatar-circle">G</div>
-                    <div class="list-item-info"><div class="list-item-name">${item.name}</div><div class="list-item-preview">Group ID: ${item.id}</div></div>
-                    <button class="action-btn-small" onclick="app.handleJoinGroup(${item.id})">Join</button>
+                    <div class="list-item-info"><div class="list-item-name">${item.name}</div><div class="list-item-preview">ID: ${gId}</div></div>
+                    ${isJoined ? 
+                        `<span class="member-role-tag role-me" style="background:#cbd5e1; color:#475569;">Joined</span>` : 
+                        `<button class="action-btn-small" onclick="app.handleJoinGroup(${gId})">Join</button>`
+                    }
                 </div>`;
+            }
         }).join('');
     }
 
-    // --- Authentication Actions ---
+    // --- Authentication ---
     async handleLogin() {
         const username = document.getElementById('login-username').value;
         const password = document.getElementById('login-password').value;
@@ -178,7 +215,7 @@ class GoChatApp {
         const password = document.getElementById('reg-password').value;
         try {
             await this.request('/register', { method: 'POST', body: JSON.stringify({ username, nickname, password }) });
-            alert('Success! Please sign in.'); this.switchAuthTab('login');
+            alert('Registered! Please sign in.'); this.switchAuthTab('login');
         } catch (err) { alert(err.message); }
     }
 
@@ -187,7 +224,7 @@ class GoChatApp {
         const new_password = document.getElementById('forgot-new-password').value;
         try {
             await this.request('/forgot_password', { method: 'POST', body: JSON.stringify({ username, new_password }) });
-            alert('Success!'); this.switchAuthTab('login');
+            alert('Password reset successful!'); this.switchAuthTab('login');
         } catch (err) { alert(err.message); }
     }
 
@@ -199,7 +236,7 @@ class GoChatApp {
         this.showAuth();
     }
 
-    // --- Profile & Group Settings ---
+    // --- Profile & Settings ---
     showSettings() {
         document.getElementById('set-nickname').value = this.user.nickname;
         document.getElementById('set-avatar').value = this.user.avatar || '';
@@ -223,16 +260,7 @@ class GoChatApp {
         document.getElementById('my-avatar').textContent = (this.user.nickname || 'U')[0].toUpperCase();
     }
 
-    showMemberSettings() { document.getElementById('member-settings-modal').classList.remove('hidden'); }
-
-    async handleUpdateGroupNickname() {
-        const nickname = document.getElementById('set-group-nickname').value;
-        await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
-        document.getElementById('member-settings-modal').classList.add('hidden');
-        this.toggleMembers();
-    }
-
-    // --- Real-time Logic ---
+    // --- Real-time Logic (WebSocket) ---
     connectWebSocket() {
         if (this.ws) this.ws.close();
         const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${this.token}`;
@@ -257,7 +285,7 @@ class GoChatApp {
     async onReceiveRealtimeMessage(msg) {
         if (msg.msg_type >= 10) return this.handleSignalMessage(msg);
 
-        // Versioning (Piggybacking)
+        // Versioning (Piggybacking) reconciliation
         if (msg.sender_info_version) {
             const cached = this.knownUsers[msg.sender_id];
             if (!cached || msg.sender_info_version > cached.version) {
@@ -299,9 +327,9 @@ class GoChatApp {
         }
     }
 
-    // --- Interaction Actions ---
+    // --- Action Handlers ---
     async handleApplyFriend(userId) {
-        const message = prompt('Note:');
+        const message = prompt('Intro:', 'Hi, I want to be your friend.');
         if (message !== null) await this.request('/friend/apply', { method: 'POST', body: JSON.stringify({ to_user_id: userId, message }) });
     }
 
@@ -309,7 +337,7 @@ class GoChatApp {
         const message = prompt('Intro:');
         if (message !== null) {
             await this.request(`/groups/${groupId}/join`, { method: 'POST', body: JSON.stringify({ message }) });
-            alert('Join request sent!');
+            alert('Request sent!');
         }
     }
 
@@ -318,24 +346,30 @@ class GoChatApp {
         await this.loadInitialData();
     }
 
-    // --- Group Operations ---
     async handleCreateGroup(name) {
         const g = await this.request('/groups', { method: 'POST', body: JSON.stringify({ name }) });
         await this.loadInitialData(); this.openGroupChat(g.id);
     }
 
+    // --- SECURE GROUP INVITATION ---
     async handleInviteMember() {
         if (!this.currentChat?.isGroup) return;
         try {
+            // 1. Get current members to avoid duplicates
             const { members } = await this.request(`/groups/${this.currentChat.peer_id}/members`);
             const memberIds = new Set(members.map(m => m.user_id));
-            const invitees = this.friends.filter(f => !memberIds.has(f.user_id) && f.user_id !== this.user.id);
-            if (!invitees.length) return alert('No friends to invite.');
+            
+            // 2. Filter friends who are NOT in group AND NOT self
+            const candidates = this.friends.filter(f => !memberIds.has(f.user_id) && f.user_id !== this.user.id);
+            
+            if (candidates.length === 0) return alert('No available friends to invite.');
+
             const listEl = document.getElementById('invite-list');
-            listEl.innerHTML = invitees.map(f => `
-                <div class="member-item" onclick="app.submitDirectInvite(${f.user_id})" style="cursor:pointer; border-radius:8px;">
-                    <div class="avatar-circle" style="width:32px; height:32px; font-size:11px;">${(f.nickname || '?')[0].toUpperCase()}</div>
+            listEl.innerHTML = candidates.map(f => `
+                <div class="member-item" onclick="app.submitDirectInvite(${f.user_id})" style="cursor:pointer; border-radius:12px;">
+                    <div class="avatar-circle" style="width:34px; height:34px; font-size:12px;">${(f.nickname || '?')[0].toUpperCase()}</div>
                     <label style="margin-left:12px; cursor:pointer; flex:1; font-weight:600;">${f.nickname}</label>
+                    <span style="color:var(--primary); font-size:11px; font-weight:700;">Click to Invite</span>
                 </div>`).join('');
             document.getElementById('invite-modal').classList.remove('hidden');
         } catch (e) { alert(e.message); }
@@ -352,22 +386,29 @@ class GoChatApp {
     async toggleMembers() {
         const panel = document.getElementById('member-list-panel');
         if (!panel.classList.contains('hidden')) return panel.classList.add('hidden');
+        
         try {
             const data = await this.request(`/groups/${this.currentChat.peer_id}/members`);
             const group = this.groups.find(g => g.id === this.currentChat.peer_id);
             const isOwner = group?.owner_id === this.user.id;
-            panel.innerHTML = data.members.map(m => `
+            
+            panel.innerHTML = data.members.map(m => {
+                // FLEXIBLE NICKNAME LOGIC
+                const name = m.nickname || `User ${m.user_id}`;
+                const isMe = m.user_id === this.user.id;
+                return `
                 <div class="member-item">
-                    <div class="avatar-circle" style="width:36px; height:36px; font-size:13px;">${(m.nickname || '?')[0].toUpperCase()}</div>
+                    <div class="avatar-circle" style="width:36px; height:36px; font-size:13px; background: #e2e8f0;">${name[0].toUpperCase()}</div>
                     <div class="member-info-text">
                         <div class="member-name-row">
-                            <span class="member-display-name">${m.nickname || 'User ' + m.user_id}</span>
-                            ${m.user_id === this.user.id ? '<span class="member-role-tag role-me" onclick="app.showMemberSettings()" style="cursor:pointer;">You</span>' : ''}
+                            <span class="member-display-name">${name}</span>
+                            ${isMe ? '<span class="member-role-tag role-me" onclick="app.showMemberSettings()" style="cursor:pointer;">You</span>' : ''}
                             ${m.role === 2 ? '<span class="member-role-tag role-owner">Owner</span>' : ''}
                         </div>
                     </div>
-                    ${isOwner && m.user_id !== this.user.id ? `<button class="action-btn-small danger" onclick="app.handleKickMember(${m.user_id})">Kick</button>` : ''}
-                </div>`).join('');
+                    ${isOwner && !isMe ? `<button class="action-btn-small danger" onclick="app.handleKickMember(${m.user_id})">Kick</button>` : ''}
+                </div>`;
+            }).join('');
             panel.classList.remove('hidden');
         } catch (e) {}
     }
@@ -375,8 +416,17 @@ class GoChatApp {
     async handleKickMember(userId) {
         if (confirm('Kick?')) {
             await this.request(`/groups/${this.currentChat.peer_id}/kick/${userId}`, { method: 'POST' });
-            this.toggleMembers();
+            this.toggleMembers(); 
         }
+    }
+
+    showMemberSettings() { document.getElementById('member-settings-modal').classList.remove('hidden'); }
+
+    async handleUpdateGroupNickname() {
+        const nickname = document.getElementById('set-group-nickname').value;
+        await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
+        document.getElementById('member-settings-modal').classList.add('hidden');
+        this.toggleMembers();
     }
 
     async handleUpdateAnnouncement() {
@@ -410,11 +460,8 @@ class GoChatApp {
         this.updateMyProfile();
         try {
             const [c, f, g, r, gr] = await Promise.all([
-                this.request('/conversations'), 
-                this.request('/friends'), 
-                this.request('/groups'), 
-                this.request('/friend/apply/list'),
-                this.request('/groups/requests')
+                this.request('/conversations'), this.request('/friends'), this.request('/groups'), 
+                this.request('/friend/apply/list'), this.request('/groups/requests')
             ]);
             this.conversations = c.conversations || [];
             this.friends = f.friends || [];
@@ -453,14 +500,14 @@ class GoChatApp {
         const pending = this.requests.filter(r => r.status === 0);
         let html = '';
         if (pending.length) {
-            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">APPLICATIONS</div>`;
+            html += `<div class="list-section-title">APPLICATIONS</div>`;
             html += pending.map(r => `<div class="list-item">
                 <div class="avatar-circle">?</div>
                 <div class="list-item-info"><div class="list-item-name">User ${r.from_user_id}</div><div class="list-item-preview">${r.message || 'Hi'}</div></div>
                 <div style="display:flex; gap:10px;"><button class="accept-btn" onclick="app.handleHandleApply(${r.id}, true)">✔</button><button class="reject-btn" onclick="app.handleHandleApply(${r.id}, false)">✖</button></div>
             </div>`).join('');
         }
-        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">MY FRIENDS</div>`;
+        html += `<div class="list-section-title">MY FRIENDS</div>`;
         html += this.friends.map(f => `<div class="list-item" onclick="app.openPrivateChat(${f.user_id})">
             <div class="avatar-circle">${(f.nickname || 'U')[0].toUpperCase()}</div>
             <div class="list-item-info"><div class="list-item-name">${f.nickname}</div><div class="list-item-preview">ID: ${f.user_id}</div></div>
@@ -472,31 +519,26 @@ class GoChatApp {
     renderGroupList() {
         const container = document.getElementById('list-content');
         let html = '';
-        
-        // Group Audit Section for Owners
         if (this.groupRequests.length > 0) {
-            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">GROUP REQUESTS</div>`;
-            html += this.groupRequests.map(r => `
-                <div class="list-item">
-                    <div class="avatar-circle">?</div>
-                    <div class="list-item-info">
-                        <div class="list-item-name">${r.nickname || 'User '+r.user_id} <span style="font-size:10px; opacity:0.6;">-> Group ${r.group_id}</span></div>
-                        <div class="list-item-preview">${r.message || 'Wants to join'}</div>
-                    </div>
-                    <div style="display:flex; gap:10px;">
-                        <button class="accept-btn" onclick="app.handleHandleGroupRequest(${r.id}, true)">✔</button>
-                        <button class="reject-btn" onclick="app.handleHandleGroupRequest(${r.id}, false)">✖</button>
-                    </div>
-                </div>`).join('');
+            html += `<div class="list-section-title">GROUP REQUESTS</div>`;
+            html += this.groupRequests.map(r => `<div class="list-item">
+                <div class="avatar-circle">?</div>
+                <div class="list-item-info">
+                    <div class="list-item-name">${r.nickname || 'User '+r.user_id} <span style="font-size:10px; opacity:0.6;">-> Group ${r.group_id}</span></div>
+                    <div class="list-item-preview">${r.message || 'Wants to join'}</div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="accept-btn" onclick="app.handleHandleGroupRequest(${r.id}, true)">✔</button>
+                    <button class="reject-btn" onclick="app.handleHandleGroupRequest(${r.id}, false)">✖</button>
+                </div>
+            </div>`).join('');
         }
-
-        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">MY GROUPS</div>`;
+        html += `<div class="list-section-title">MY GROUPS</div>`;
         html += this.groups.map(g => `<div class="list-item" onclick="app.openGroupChat(${g.id})">
             <div class="avatar-circle">G</div>
             <div class="list-item-info"><div class="list-item-name">${g.name}</div><div class="list-item-preview">Group ID: ${g.id}</div></div>
             <button class="action-btn-small" onclick="event.stopPropagation(); app.openGroupChat(${g.id})">Chat</button>
         </div>`).join('');
-        
         container.innerHTML = html;
     }
 
@@ -545,16 +587,13 @@ class GoChatApp {
             const group = this.groups.find(g => g.id === pId);
             const isOwner = group?.owner_id === this.user.id;
             
-            // STRICT OWNER CHECK for invite-btn
             document.getElementById('invite-btn').classList.toggle('hidden', !isOwner);
             document.getElementById('dismiss-group-btn').classList.toggle('hidden', !isOwner);
             document.getElementById('quit-group-btn').classList.toggle('hidden', isOwner);
             
             document.getElementById('active-chat-name').onclick = isOwner ? () => this.handleUpdateAnnouncement() : null;
             document.getElementById('active-chat-name').style.cursor = isOwner ? 'pointer' : 'default';
-        } else {
-            groupActions.classList.add('hidden');
-        }
+        } else groupActions.classList.add('hidden');
         
         const data = await this.request(`/messages?conversation_id=${id}`);
         this.messages = data.messages || []; this.renderMessages(); this.scrollToBottom();

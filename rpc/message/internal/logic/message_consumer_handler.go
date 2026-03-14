@@ -174,7 +174,6 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 	action, _ := event["action"].(string)
 	groupId := h.toInt64(event["group_id"])
 	actorId := h.toInt64(event["user_id"])
-	actorName := h.getUserNickname(ctx, actorId)
 
 	var content string
 	var targets []int64
@@ -182,11 +181,24 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 
 	switch action {
 	case "create":
-		content = fmt.Sprintf("%s created the group", actorName)
+		content = "Group created"
 		targets = []int64{actorId}
 	case "join":
-		content = fmt.Sprintf("%s joined the group", actorName)
+		content = "A new member joined"
 		targets = []int64{actorId}
+	case "reject":
+		// Handle Group Application Rejection
+		sig := &pb.ChatMessageEvent{
+			MsgId:     strconv.FormatInt(time.Now().UnixNano(), 10),
+			SenderId:  0,  // System
+			MsgType:   16, // Signal: Group Request Rejected
+			GroupId:   groupId,
+			Content:   "rejected",
+			Timestamp: time.Now().UnixMilli(),
+			TargetIds: []int64{actorId}, // Notify applicant
+		}
+		h.pushToGateways(ctx, sig)
+		return nil
 	case "invite":
 		var inviteeIds []int64
 		targets = []int64{actorId}
@@ -198,27 +210,22 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 			}
 		}
 
-		// Batch fetch nicknames to avoid N+1 RPC
 		var inviteeNames []string
 		if len(inviteeIds) > 0 {
-			userResp, err := h.svcCtx.UserRpc.GetUsersByIds(ctx, &userservice.GetUsersByIdsRequest{UserIds: inviteeIds})
-			if err == nil {
+			userResp, _ := h.svcCtx.UserRpc.GetUsersByIds(ctx, &userservice.GetUsersByIdsRequest{UserIds: inviteeIds})
+			if userResp != nil {
 				for _, u := range userResp.Users {
 					inviteeNames = append(inviteeNames, u.Nickname)
 				}
-			} else {
-				for _, uid := range inviteeIds {
-					inviteeNames = append(inviteeNames, fmt.Sprintf("User %d", uid))
-				}
 			}
 		}
-		content = fmt.Sprintf("%s invited %s to the group", actorName, strings.Join(inviteeNames, ", "))
+		content = fmt.Sprintf("%s has been invited to the group", strings.Join(inviteeNames, ", "))
 	case "quit", "kick":
 		content = "Member left the group"
 		signalType = 12
 		targets = []int64{actorId}
 	case "dismiss":
-		content = "This group has been dismissed"
+		content = "The group has been dismissed"
 		signalType = 13
 	case "update_announcement":
 		content = "Group announcement updated"
@@ -228,11 +235,11 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 
 	convId := fmt.Sprintf("group_%d", groupId)
 	msgId := strconv.FormatInt(snowflake.MustNextID(), 10)
-	l := NewSaveMessageLogic(ctx, h.svcCtx)
 	evt := &pb.ChatMessageEvent{
 		MsgId: msgId, ConversationId: convId, SenderId: 0, GroupId: groupId,
 		MsgType: 6, Content: content, Timestamp: time.Now().UnixMilli(), TargetIds: targets,
 	}
+	l := NewSaveMessageLogic(ctx, h.svcCtx)
 	_, err := l.SaveMessage(&pb.SaveMessageRequest{
 		Message: evt,
 	})
@@ -256,7 +263,7 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 		}
 		h.pushToGateways(ctx, sig)
 	}
-	return err
+	return nil
 }
 
 func (h *MessageConsumerHandler) pushToGateways(ctx context.Context, event *pb.ChatMessageEvent) {
@@ -290,10 +297,10 @@ func (h *MessageConsumerHandler) pushToGateways(ctx context.Context, event *pb.C
 	}
 }
 
-func (h *MessageConsumerHandler) sendPushRequest(gwAddr string, uids []int64, event *pb.ChatMessageEvent) {
+func (h *MessageConsumerHandler) sendPushRequest(gwAddr string, userIds []int64, event *pb.ChatMessageEvent) {
 	url := fmt.Sprintf("http://%s/internal/push", gwAddr)
 	payload := map[string]interface{}{
-		"user_ids":            uids,
+		"user_ids":            userIds,
 		"conversation_id":     event.ConversationId,
 		"msg_id":              event.MsgId,
 		"sender_id":           event.SenderId,

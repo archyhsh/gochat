@@ -30,6 +30,7 @@ func NewGetFriendListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 }
 
 func (l *GetFriendListLogic) GetFriendList(in *pb.GetFriendListRequest) (*pb.GetFriendListResponse, error) {
+	// get a user's friendlist based on relation
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")
