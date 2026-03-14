@@ -32,6 +32,7 @@ func NewCreateGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Creat
 }
 
 func (l *CreateGroupLogic) CreateGroup(in *pb.CreateGroupRequest) (*pb.CreateGroupResponse, error) {
+	// create a new group in group model
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")

@@ -24,6 +24,7 @@ func NewCheckGroupMemberLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *CheckGroupMemberLogic) CheckGroupMember(in *pb.CheckGroupMemberRequest) (*pb.CheckGroupMemberResponse, error) {
+	// check group member's role in a group from group member model
 	members, err := l.svcCtx.GroupMemberModel.FindOneByGroupIdUserId(l.ctx, in.GroupId, in.UserId)
 	if err != nil {
 		if err == model.ErrNotFound {

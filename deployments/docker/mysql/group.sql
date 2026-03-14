@@ -37,15 +37,15 @@ CREATE TABLE IF NOT EXISTS `group_member` (
   KEY `idx_group_id` (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- CREATE TABLE IF NOT EXISTS `group_request` (
---   `id` BIGINT NOT NULL AUTO_INCREMENT,
---   `group_id` BIGINT NOT NULL,
---   `user_id` BIGINT NOT NULL,
---   `message` VARCHAR(255) DEFAULT '' COMMENT 'application message',
---   `status` TINYINT DEFAULT 0 COMMENT 'status: 0pending 1approved 2rejected',
---   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
---   PRIMARY KEY (`id`),
---   KEY `idx_group_id` (`group_id`),
---   KEY `idx_user_id` (`user_id`)
--- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS `group_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `group_id` BIGINT NOT NULL,
+  `user_id` BIGINT NOT NULL,
+  `message` VARCHAR(255) DEFAULT '' COMMENT 'application message',
+  `status` TINYINT DEFAULT 0 COMMENT 'status: 0pending 1approved 2rejected',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_group_id` (`group_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

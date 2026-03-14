@@ -92,3 +92,13 @@ func (s *GroupServiceServer) UpdateGroupNickname(ctx context.Context, in *pb.Upd
 	l := logic.NewUpdateGroupNicknameLogic(ctx, s.svcCtx)
 	return l.UpdateGroupNickname(in)
 }
+
+func (s *GroupServiceServer) GetGroupRequests(ctx context.Context, in *pb.GetGroupRequestsRequest) (*pb.GetGroupRequestsResponse, error) {
+	l := logic.NewGetGroupRequestsLogic(ctx, s.svcCtx)
+	return l.GetGroupRequests(in)
+}
+
+func (s *GroupServiceServer) HandleGroupRequest(ctx context.Context, in *pb.HandleGroupRequestRequest) (*pb.HandleGroupRequestResponse, error) {
+	l := logic.NewHandleGroupRequestLogic(ctx, s.svcCtx)
+	return l.HandleGroupRequest(in)
+}

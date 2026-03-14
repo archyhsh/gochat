@@ -54,6 +54,23 @@ type (
 		GroupId  int64  `path:"id"`
 		Nickname string `json:"nickname"`
 	}
+	GroupRequest {
+		Id        int64  `json:"id"`
+		GroupId   int64  `json:"group_id"`
+		UserId    int64  `json:"user_id"`
+		Message   string `json:"message"`
+		Status    int    `json:"status"`
+		CreatedAt int64  `json:"created_at"`
+		Nickname  string `json:"nickname"`
+		Avatar    string `json:"avatar"`
+	}
+	GetGroupRequestsResponse {
+		Requests []GroupRequest `json:"requests"`
+	}
+	HandleGroupRequest {
+		RequestId int64 `json:"request_id"`
+		Accept    bool  `json:"accept"`
+	}
 	QuitGroupRequest {
 		GroupId int64 `path:"id"`
 	}
@@ -109,4 +126,10 @@ service gateway {
 
 	@handler UpdateGroupNickname
 	put /groups/:id/nickname (UpdateGroupNicknameRequest) returns (CommonResponse)
+
+	@handler GetGroupRequests
+	get /groups/requests returns (GetGroupRequestsResponse)
+
+	@handler HandleGroupRequest
+	post /groups/requests/handle (HandleGroupRequest) returns (CommonResponse)
 }

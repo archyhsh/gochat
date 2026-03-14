@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"fmt"
+
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/user/userservice"
@@ -28,6 +29,7 @@ func NewGetGroupMembersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 }
 
 func (l *GetGroupMembersLogic) GetGroupMembers(in *pb.GetGroupMembersRequest) (*pb.GetGroupMembersResponse, error) {
+	// get all group members in a group in group member model
 	members, err := l.svcCtx.GroupMemberModel.FindMembersByGroupId(l.ctx, in.GroupId)
 	if err != nil {
 		l.Errorf("GetGroupMembers failed to query DB: groupID=%d, error=%v", in.GroupId, err)

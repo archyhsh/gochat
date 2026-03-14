@@ -29,6 +29,7 @@ func NewGetGroupListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetG
 }
 
 func (l *GetGroupListLogic) GetGroupList(in *pb.GetGroupListRequest) (*pb.GetGroupListResponse, error) {
+	// get group list based on user level in group model
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")

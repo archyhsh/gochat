@@ -88,18 +88,18 @@ CREATE TABLE IF NOT EXISTS `group_member` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群成员表';
 
 
--- CREATE TABLE IF NOT EXISTS `group_request` (
---   `id` BIGINT NOT NULL AUTO_INCREMENT,
---   `group_id` BIGINT NOT NULL COMMENT '群ID',
---   `user_id` BIGINT NOT NULL COMMENT '用户ID',
---   `message` VARCHAR(255) DEFAULT '' COMMENT '申请消息',
---   `status` TINYINT DEFAULT 0 COMMENT '状态: 0待处理 1已同意 2已拒绝',
---   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
---   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
---   PRIMARY KEY (`id`),
---   KEY `idx_group_id` (`group_id`),
---   KEY `idx_user_id` (`user_id`)
--- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群申请表';
+CREATE TABLE IF NOT EXISTS `group_request` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `group_id` BIGINT NOT NULL COMMENT '群ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `message` VARCHAR(255) DEFAULT '' COMMENT '申请消息',
+  `status` TINYINT DEFAULT 0 COMMENT '状态: 0待处理 1已同意 2已拒绝',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_group_id` (`group_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='群申请表';
 
 
 CREATE TABLE IF NOT EXISTS `conversation` (

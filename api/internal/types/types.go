@@ -99,6 +99,10 @@ type GetGroupMembersRequest struct {
 	GroupId int64 `path:"id"`
 }
 
+type GetGroupRequestsResponse struct {
+	Requests []GroupRequest `json:"requests"`
+}
+
 type GetMessageByIdRequest struct {
 	MsgId string `path:"msg_id"`
 }
@@ -137,9 +141,25 @@ type GroupMembersResponse struct {
 	Members []GroupMember `json:"members"`
 }
 
+type GroupRequest struct {
+	Id        int64  `json:"id"`
+	GroupId   int64  `json:"group_id"`
+	UserId    int64  `json:"user_id"`
+	Message   string `json:"message"`
+	Status    int    `json:"status"`
+	CreatedAt int64  `json:"created_at"`
+	Nickname  string `json:"nickname"`
+	Avatar    string `json:"avatar"`
+}
+
 type HandleApplyRequest struct {
 	ApplyId int64 `json:"apply_id"`
 	Accept  bool  `json:"accept"`
+}
+
+type HandleGroupRequest struct {
+	RequestId int64 `json:"request_id"`
+	Accept    bool  `json:"accept"`
 }
 
 type InviteRequest struct {

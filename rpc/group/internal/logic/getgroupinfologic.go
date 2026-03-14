@@ -27,6 +27,7 @@ func NewGetGroupInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetG
 }
 
 func (l *GetGroupInfoLogic) GetGroupInfo(in *pb.GetGroupInfoRequest) (*pb.GetGroupInfoResponse, error) {
+	// get unblacklisted group info in group model
 	group, err := l.svcCtx.GroupModel.FindValidGroupsByGroupId(l.ctx, in.GroupId)
 	if err != nil {
 		if err == model.ErrNotFound {

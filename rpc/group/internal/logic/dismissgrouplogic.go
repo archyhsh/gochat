@@ -31,6 +31,7 @@ func NewDismissGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Dism
 }
 
 func (l *DismissGroupLogic) DismissGroup(in *pb.DismissGroupRequest) (*pb.DismissGroupResponse, error) {
+	// dismiss a group by deleting a group in group model with authentication
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
 		return nil, status.Error(codes.Unauthenticated, "missing metadata")

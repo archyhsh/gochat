@@ -1,4 +1,4 @@
-// GoChat Premium Client v2.7.2
+// GoChat Premium Client v2.8.0 - Master Build
 const API_BASE = ''; 
 
 class GoChatApp {
@@ -10,9 +10,11 @@ class GoChatApp {
         this.friends = [];
         this.groups = [];
         this.messages = [];
-        this.requests = [];
-        this.knownUsers = {}; // Cache: { userId: { nickname, avatar, version } }
-        this.knownGroups = {}; // Cache: { groupId: { name, avatar, version } }
+        this.requests = []; // Friend requests
+        this.groupRequests = []; // Inbound group join requests
+        
+        this.knownUsers = {}; 
+        this.knownGroups = {}; 
         
         this.currentView = 'chats'; 
         this.ws = null;
@@ -38,6 +40,7 @@ class GoChatApp {
     }
 
     bindEvents() {
+        // --- Auth & Profile ---
         document.getElementById('login-btn').onclick = () => this.handleLogin();
         document.getElementById('register-btn').onclick = () => this.handleRegister();
         document.getElementById('logout-btn').onclick = () => this.handleLogout();
@@ -46,9 +49,11 @@ class GoChatApp {
         document.querySelectorAll('.auth-tab').forEach(tab => tab.onclick = () => this.switchAuthTab(tab.dataset.type));
         document.querySelectorAll('.nav-item').forEach(item => item.onclick = () => this.switchView(item.dataset.view));
 
+        // --- Chat Controls ---
         document.getElementById('send-msg-btn').onclick = () => this.handleSendMessage();
         document.getElementById('chat-input').onkeypress = (e) => { if (e.key === 'Enter') this.handleSendMessage(); };
 
+        // --- Group Management ---
         document.getElementById('create-group-btn').onclick = () => {
             const name = prompt('Enter group name:');
             if (name) this.handleCreateGroup(name);
@@ -58,9 +63,11 @@ class GoChatApp {
         document.getElementById('quit-group-btn').onclick = () => this.handleQuitGroup();
         document.getElementById('dismiss-group-btn').onclick = () => this.handleDismissGroup();
 
+        // --- Global Search ---
         document.getElementById('global-search').oninput = (e) => {
             clearTimeout(this.searchTimer);
-            this.searchTimer = setTimeout(() => this.handleSearch(e.target.value.trim()), 400);
+            const val = e.target.value.trim();
+            this.searchTimer = setTimeout(() => this.handleSearch(val), 400);
         };
     }
 
@@ -103,8 +110,8 @@ class GoChatApp {
         this.currentView = view;
         const searchInput = document.getElementById('global-search');
         const placeholders = {
-            'chats': 'Search history chats...',
-            'friends': 'Find new users by global nickname...',
+            'chats': 'Search chats by remark or group name...',
+            'friends': 'Find new users by ID or nickname...',
             'groups': 'Discover public groups by name...'
         };
         searchInput.placeholder = placeholders[view] || 'Search...';
@@ -140,13 +147,13 @@ class GoChatApp {
             if (context === 'friends') return `
                 <div class="list-item">
                     <div class="avatar-circle">${(item.nickname || '?')[0].toUpperCase()}</div>
-                    <div class="list-item-info"><div class="list-item-name">${item.nickname}</div></div>
+                    <div class="list-item-info"><div class="list-item-name">${item.nickname}</div><div class="list-item-preview">ID: ${item.id}</div></div>
                     ${this.user.id !== item.id ? `<button class="action-btn-small" onclick="app.handleApplyFriend(${item.id})">Add</button>` : ''}
                 </div>`;
             return `
                 <div class="list-item">
                     <div class="avatar-circle">G</div>
-                    <div class="list-item-info"><div class="list-item-name">${item.name}</div></div>
+                    <div class="list-item-info"><div class="list-item-name">${item.name}</div><div class="list-item-preview">Group ID: ${item.id}</div></div>
                     <button class="action-btn-small" onclick="app.handleJoinGroup(${item.id})">Join</button>
                 </div>`;
         }).join('');
@@ -220,11 +227,9 @@ class GoChatApp {
 
     async handleUpdateGroupNickname() {
         const nickname = document.getElementById('set-group-nickname').value;
-        try {
-            await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
-            document.getElementById('member-settings-modal').classList.add('hidden');
-            this.toggleMembers();
-        } catch(e) { alert(e.message); }
+        await this.request(`/groups/${this.currentChat.peer_id}/nickname`, { method: 'PUT', body: JSON.stringify({ nickname }) });
+        document.getElementById('member-settings-modal').classList.add('hidden');
+        this.toggleMembers();
     }
 
     // --- Real-time Logic ---
@@ -301,10 +306,10 @@ class GoChatApp {
     }
 
     async handleJoinGroup(groupId) {
-        const message = prompt('Note:');
+        const message = prompt('Intro:');
         if (message !== null) {
             await this.request(`/groups/${groupId}/join`, { method: 'POST', body: JSON.stringify({ message }) });
-            alert('Request sent!');
+            alert('Join request sent!');
         }
     }
 
@@ -329,7 +334,7 @@ class GoChatApp {
             const listEl = document.getElementById('invite-list');
             listEl.innerHTML = invitees.map(f => `
                 <div class="member-item" onclick="app.submitDirectInvite(${f.user_id})" style="cursor:pointer; border-radius:8px;">
-                    <div class="avatar-circle" style="width:32px; height:32px; font-size:11px;">${f.nickname[0]}</div>
+                    <div class="avatar-circle" style="width:32px; height:32px; font-size:11px;">${(f.nickname || '?')[0].toUpperCase()}</div>
                     <label style="margin-left:12px; cursor:pointer; flex:1; font-weight:600;">${f.nickname}</label>
                 </div>`).join('');
             document.getElementById('invite-modal').classList.remove('hidden');
@@ -404,11 +409,18 @@ class GoChatApp {
     async loadInitialData() {
         this.updateMyProfile();
         try {
-            const [c, f, g, r] = await Promise.all([this.request('/conversations'), this.request('/friends'), this.request('/groups'), this.request('/friend/apply/list')]);
+            const [c, f, g, r, gr] = await Promise.all([
+                this.request('/conversations'), 
+                this.request('/friends'), 
+                this.request('/groups'), 
+                this.request('/friend/apply/list'),
+                this.request('/groups/requests')
+            ]);
             this.conversations = c.conversations || [];
             this.friends = f.friends || [];
             this.groups = g.groups || [];
             this.requests = r.applies || [];
+            this.groupRequests = gr.requests || [];
             this.updateBadge();
             this.renderCurrentList();
         } catch(e) {}
@@ -441,14 +453,14 @@ class GoChatApp {
         const pending = this.requests.filter(r => r.status === 0);
         let html = '';
         if (pending.length) {
-            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9;">APPLICATIONS</div>`;
+            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">APPLICATIONS</div>`;
             html += pending.map(r => `<div class="list-item">
                 <div class="avatar-circle">?</div>
                 <div class="list-item-info"><div class="list-item-name">User ${r.from_user_id}</div><div class="list-item-preview">${r.message || 'Hi'}</div></div>
                 <div style="display:flex; gap:10px;"><button class="accept-btn" onclick="app.handleHandleApply(${r.id}, true)">✔</button><button class="reject-btn" onclick="app.handleHandleApply(${r.id}, false)">✖</button></div>
             </div>`).join('');
         }
-        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9;">MY FRIENDS</div>`;
+        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">MY FRIENDS</div>`;
         html += this.friends.map(f => `<div class="list-item" onclick="app.openPrivateChat(${f.user_id})">
             <div class="avatar-circle">${(f.nickname || 'U')[0].toUpperCase()}</div>
             <div class="list-item-info"><div class="list-item-name">${f.nickname}</div><div class="list-item-preview">ID: ${f.user_id}</div></div>
@@ -458,11 +470,41 @@ class GoChatApp {
     }
 
     renderGroupList() {
-        document.getElementById('list-content').innerHTML = this.groups.map(g => `<div class="list-item" onclick="app.openGroupChat(${g.id})">
+        const container = document.getElementById('list-content');
+        let html = '';
+        
+        // Group Audit Section for Owners
+        if (this.groupRequests.length > 0) {
+            html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">GROUP REQUESTS</div>`;
+            html += this.groupRequests.map(r => `
+                <div class="list-item">
+                    <div class="avatar-circle">?</div>
+                    <div class="list-item-info">
+                        <div class="list-item-name">${r.nickname || 'User '+r.user_id} <span style="font-size:10px; opacity:0.6;">-> Group ${r.group_id}</span></div>
+                        <div class="list-item-preview">${r.message || 'Wants to join'}</div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="accept-btn" onclick="app.handleHandleGroupRequest(${r.id}, true)">✔</button>
+                        <button class="reject-btn" onclick="app.handleHandleGroupRequest(${r.id}, false)">✖</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        html += `<div style="padding:16px 20px; font-size:11px; font-weight:800; color:var(--text-muted); border-bottom:1px solid #f1f5f9; background:#f8fafc;">MY GROUPS</div>`;
+        html += this.groups.map(g => `<div class="list-item" onclick="app.openGroupChat(${g.id})">
             <div class="avatar-circle">G</div>
             <div class="list-item-info"><div class="list-item-name">${g.name}</div><div class="list-item-preview">Group ID: ${g.id}</div></div>
             <button class="action-btn-small" onclick="event.stopPropagation(); app.openGroupChat(${g.id})">Chat</button>
         </div>`).join('');
+        
+        container.innerHTML = html;
+    }
+
+    async handleHandleGroupRequest(requestId, accept) {
+        try {
+            await this.request('/groups/requests/handle', { method: 'POST', body: JSON.stringify({ request_id: requestId, accept }) });
+            await this.loadInitialData();
+        } catch(e) { alert(e.message); }
     }
 
     renderMessages() {
@@ -492,19 +534,28 @@ class GoChatApp {
         document.getElementById('welcome-view').classList.add('hidden');
         document.getElementById('chat-view').classList.remove('hidden');
         document.getElementById('member-list-panel').classList.add('hidden');
+        
         const avatarEl = document.getElementById('active-avatar');
         avatarEl.textContent = isG ? 'G' : 'U';
         document.getElementById('active-chat-name').textContent = isG ? `Group: ${pId}` : `User: ${pId}`;
+        
         const groupActions = document.getElementById('group-actions');
         if (isG) {
             groupActions.classList.remove('hidden');
             const group = this.groups.find(g => g.id === pId);
             const isOwner = group?.owner_id === this.user.id;
+            
+            // STRICT OWNER CHECK for invite-btn
+            document.getElementById('invite-btn').classList.toggle('hidden', !isOwner);
             document.getElementById('dismiss-group-btn').classList.toggle('hidden', !isOwner);
             document.getElementById('quit-group-btn').classList.toggle('hidden', isOwner);
+            
             document.getElementById('active-chat-name').onclick = isOwner ? () => this.handleUpdateAnnouncement() : null;
             document.getElementById('active-chat-name').style.cursor = isOwner ? 'pointer' : 'default';
-        } else groupActions.classList.add('hidden');
+        } else {
+            groupActions.classList.add('hidden');
+        }
+        
         const data = await this.request(`/messages?conversation_id=${id}`);
         this.messages = data.messages || []; this.renderMessages(); this.scrollToBottom();
         this.request('/conversations/clear_unread', { method: 'POST', body: JSON.stringify({ conversation_id: id }) }).then(() => this.loadConversations());
@@ -519,7 +570,12 @@ class GoChatApp {
 
     openPrivateChat(userId) { const id = this.user.id < userId ? `conv_${this.user.id}_${userId}` : `conv_${userId}_${this.user.id}`; this.restoreAndOpen(id, userId, false); }
     openGroupChat(groupId) { this.restoreAndOpen(`group_${groupId}`, groupId, true); }
-    updateBadge() { const badge = document.getElementById('request-badge'); const count = this.requests.filter(r => r.status === 0).length; badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
+    updateBadge() {
+        const badge = document.getElementById('request-badge');
+        const count = this.requests.filter(r => r.status === 0).length + this.groupRequests.length;
+        badge.textContent = count;
+        badge.classList.toggle('hidden', count === 0);
+    }
     formatTime(ts) { if (!ts) return ''; const d = new Date(ts * 1000); return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
     scrollToBottom() { const el = document.getElementById('message-list'); el.scrollTop = el.scrollHeight; }
 }

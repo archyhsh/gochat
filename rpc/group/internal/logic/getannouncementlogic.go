@@ -27,6 +27,7 @@ func NewGetAnnouncementLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 }
 
 func (l *GetAnnouncementLogic) GetAnnouncement(in *pb.GetAnnouncementRequest) (*pb.GetAnnouncementResponse, error) {
+	// get announcement of a valid group in group model
 	group, err := l.svcCtx.GroupModel.FindValidGroupsByGroupId(l.ctx, in.GroupId)
 	if err != nil {
 		if err == model.ErrNotFound {

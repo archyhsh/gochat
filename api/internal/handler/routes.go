@@ -98,6 +98,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodGet,
+					Path:    "/groups/requests",
+					Handler: group.GetGroupRequestsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/groups/requests/handle",
+					Handler: group.HandleGroupRequestHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodGet,
 					Path:    "/groups/search",
 					Handler: group.SearchGroupsHandler(serverCtx),
 				},
