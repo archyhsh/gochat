@@ -149,6 +149,19 @@ func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event ma
 		return nil
 	}
 
+	if action == "delete" {
+		evt := &pb.ChatMessageEvent{
+			MsgId:     strconv.FormatInt(time.Now().UnixNano(), 10),
+			SenderId:  fromId,
+			MsgType:   14, // Signal: Friend Deleted
+			Content:   "deleted you from friend list",
+			Timestamp: time.Now().UnixMilli(),
+			TargetIds: []int64{toId},
+		}
+		h.pushToGateways(ctx, evt)
+		return nil
+	}
+
 	if action != "accept" {
 		return nil
 	}
@@ -286,6 +299,18 @@ func (h *MessageConsumerHandler) pushToGateways(ctx context.Context, event *pb.C
 		if uid <= 0 {
 			continue
 		}
+
+		// Filter blocked users for private messages
+		if event.GroupId == 0 && event.SenderId > 0 && uid != event.SenderId {
+			checkResp, err := h.svcCtx.RelationRpc.CheckFriend(ctx, &pb.CheckFriendRequest{
+				UserId:   uid,
+				FriendId: event.SenderId,
+			})
+			if err == nil && checkResp.IsBlocked {
+				continue
+			}
+		}
+
 		addr, err := h.svcCtx.Router.Find(ctx, uid)
 		if err == nil && addr != "" {
 			gwMap[addr] = append(gwMap[addr], uid)

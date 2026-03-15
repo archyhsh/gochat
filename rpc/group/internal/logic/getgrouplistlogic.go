@@ -55,6 +55,7 @@ func (l *GetGroupListLogic) GetGroupList(in *pb.GetGroupListRequest) (*pb.GetGro
 			GroupId: group.Id,
 			Name:    group.Name,
 			Avatar:  group.Avatar,
+			OwnerId: group.OwnerId,
 		})
 	}
 	return &pb.GetGroupListResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}, Groups: groupSummaryList}, nil

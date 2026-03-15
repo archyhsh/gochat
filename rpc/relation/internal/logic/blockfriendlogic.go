@@ -46,11 +46,11 @@ func (l *BlockFriendLogic) BlockFriend(in *pb.BlockFriendRequest) (*pb.BlockFrie
 		return nil, status.Error(codes.InvalidArgument, "cannot block yourself")
 	}
 	friendship, err := l.svcCtx.FriendshipModel.FindOneByUserIdFriendId(l.ctx, userId, in.FriendId)
-	if err == nil && err != model.ErrNotFound {
-		return nil, status.Error(codes.Internal, "cannot find friendship")
-	}
-	if err == nil && err == model.ErrNotFound {
-		return nil, status.Error(codes.NotFound, "target is not your friend")
+	if err != nil {
+		if err == model.ErrNotFound {
+			return nil, status.Error(codes.NotFound, "target is not your friend")
+		}
+		return nil, status.Error(codes.Internal, "database error: "+err.Error())
 	}
 	friendship.Status = 1
 	err = l.svcCtx.FriendshipModel.Update(l.ctx, friendship)

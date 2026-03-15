@@ -2,7 +2,10 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/relation/internal/svc"
@@ -46,16 +49,31 @@ func (l *DeleteFriendLogic) DeleteFriend(in *pb.DeleteFriendRequest) (*pb.Delete
 		return nil, status.Error(codes.InvalidArgument, "cannot delete yourself")
 	}
 	_, err = l.svcCtx.FriendshipModel.FindOneByUserIdFriendId(l.ctx, userId, in.FriendId)
-	if err != nil && err != model.ErrNotFound {
-		return nil, status.Error(codes.Internal, "cannot find friendship")
-	}
-	if err != nil && err == model.ErrNotFound {
-		return nil, status.Error(codes.NotFound, "target is not your friend")
+	if err != nil {
+		if err == model.ErrNotFound {
+			return nil, status.Error(codes.NotFound, "target is not your friend")
+		}
+		return nil, status.Error(codes.Internal, "database error: "+err.Error())
 	}
 
 	err = l.svcCtx.FriendshipModel.DeleteFriendshipByUserIdFriendId(l.ctx, userId, in.FriendId)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to delete friend")
 	}
+
+	// Send delete signal via Kafka
+	if l.svcCtx.Producer != nil {
+		event := map[string]interface{}{
+			"type":         "friend_event",
+			"action":       "delete",
+			"from_user_id": userId,
+			"to_user_id":   in.FriendId,
+			"timestamp":    time.Now().Unix(),
+		}
+		data, _ := json.Marshal(event)
+		key := fmt.Sprintf("friend_%d_%d", userId, in.FriendId)
+		_ = l.svcCtx.Producer.Send([]byte(key), data)
+	}
+
 	return &pb.DeleteFriendResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}}, nil
 }

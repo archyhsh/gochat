@@ -2,6 +2,8 @@ package logic
 
 import (
 	"context"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
@@ -89,12 +91,38 @@ func (l *SaveMessageLogic) SaveMessage(in *pb.SaveMessageRequest) (*pb.SaveMessa
 			if tid <= 0 || updatedUsers[tid] {
 				continue
 			}
+
+			// Block check for targets (receivers)
+			if in.Message.GroupId == 0 && in.Message.SenderId > 0 {
+				checkResp, err := l.svcCtx.RelationRpc.CheckFriend(l.ctx, &pb.CheckFriendRequest{
+					UserId:   tid,                 // The target receiver
+					FriendId: in.Message.SenderId, // The sender
+				})
+				// If blocked, don't update this user's conversation list/unread count
+				if err == nil && checkResp.IsBlocked {
+					continue
+				}
+			}
+
 			incUnread := tid != in.Message.SenderId
 			peerId := in.Message.SenderId
 			if in.Message.GroupId > 0 {
 				peerId = in.Message.GroupId
 			} else if peerId == 0 {
-				peerId = in.Message.ReceiverId
+				// For system messages in private chat (conv_A_B),
+				// if current user is A, peer is B, and vice-versa.
+				parts := strings.Split(in.Message.ConversationId, "_")
+				if len(parts) == 3 && parts[0] == "conv" {
+					id1, _ := strconv.ParseInt(parts[1], 10, 64)
+					id2, _ := strconv.ParseInt(parts[2], 10, 64)
+					if tid == id1 {
+						peerId = id2
+					} else {
+						peerId = id1
+					}
+				} else {
+					peerId = in.Message.ReceiverId
+				}
 			}
 
 			err = l.svcCtx.UserConversationModel.UpdateNewPrivateMsg(ctx, s, tid, peerId, in.Message.ConversationId, msgModel, incUnread)

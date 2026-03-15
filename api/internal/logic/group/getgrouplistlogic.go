@@ -50,6 +50,7 @@ func (l *GetGroupListLogic) GetGroupList() (resp *types.GroupListResponse, err e
 			GroupId: group.GroupId,
 			Name:    group.Name,
 			Avatar:  group.Avatar,
+			OwnerId: group.OwnerId,
 		})
 	}
 	return &types.GroupListResponse{

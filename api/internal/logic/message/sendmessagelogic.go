@@ -35,6 +35,23 @@ func (l *SendMessageLogic) SendMessage(req *types.SendMessageRequest) (resp *typ
 	if !ok {
 		return nil, fmt.Errorf("unauthorized")
 	}
+
+	// Block check for private messages
+	if req.ReceiverId > 0 && req.GroupId == 0 {
+		checkResp, err := l.svcCtx.RelationRpc.CheckFriend(l.ctx, &pb.CheckFriendRequest{
+			UserId:   req.ReceiverId,
+			FriendId: userId,
+		})
+		if err == nil {
+			if !checkResp.IsFriend {
+				return nil, fmt.Errorf("you are not friends with this user")
+			}
+			if checkResp.IsBlocked {
+				return nil, fmt.Errorf("you have been blocked by this user")
+			}
+		}
+	}
+
 	msgId := strconv.FormatInt(snowflake.MustNextID(), 10)
 	now := time.Now().UnixMilli()
 

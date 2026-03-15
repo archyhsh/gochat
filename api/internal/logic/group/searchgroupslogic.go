@@ -42,6 +42,7 @@ func (l *SearchGroupsLogic) SearchGroups(req *types.SearchGroupsRequest) (resp *
 			GroupId: g.GroupId,
 			Name:    g.Name,
 			Avatar:  g.Avatar,
+			OwnerId: g.OwnerId,
 		})
 	}
 	return &types.GroupListResponse{

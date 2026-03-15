@@ -44,6 +44,7 @@ func (l *SearchGroupsLogic) SearchGroups(in *pb.SearchGroupsRequest) (*pb.Search
 			GroupId: g.Id,
 			Name:    g.Name,
 			Avatar:  g.Avatar,
+			OwnerId: g.OwnerId,
 		})
 	}
 
