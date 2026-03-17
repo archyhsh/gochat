@@ -22,6 +22,17 @@ Kafka:
     User: user-topic
   GroupID: message-rpc-consumer-group
 
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9091
+  Path: /metrics
+
+Telemetry:
+  Name: message.rpc
+  Endpoint: http://jaeger:14268/api/traces
+  Sampler: 1.0
+  Batcher: jaeger
+
 UserRpc:
   Endpoints:
     - 127.0.0.1:8081

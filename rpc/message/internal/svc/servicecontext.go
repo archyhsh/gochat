@@ -18,6 +18,7 @@ import (
 type ServiceContext struct {
 	Config                config.Config
 	SqlConn               sqlx.SqlConn
+	Redis                 *redis.Redis
 	ConversationModel     model.ConversationModel
 	MessageReadModel      model.MessageReadModel
 	MessageTemplateModel  model.MessageTemplateModel
@@ -38,6 +39,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:                c,
 		SqlConn:               sqlConn,
+		Redis:                 rdb,
 		ConversationModel:     model.NewConversationModel(sqlConn, c.Cache),
 		MessageReadModel:      model.NewMessageReadModel(sqlConn, c.Cache),
 		MessageTemplateModel:  model.NewMessageTemplateModel(sqlConn, c.Cache),

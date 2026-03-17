@@ -254,6 +254,17 @@ services:
       - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
 
+  # Jaeger 链路追踪
+  jaeger:
+    image: jaegertracing/all-in-one:1.47
+    container_name: gochat-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686" # UI
+      - "14268:14268" # Collector HTTP
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+
 volumes:
   mysql_data:
   redis_data:
