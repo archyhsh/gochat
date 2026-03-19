@@ -2,6 +2,8 @@ package kafka
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/IBM/sarama"
 )
@@ -27,23 +29,34 @@ func NewProducer(brokers []string, topic string) (*Producer, error) {
 }
 
 func (p *Producer) Send(key, value []byte) error {
-	msg := &sarama.ProducerMessage{
-		Topic: p.topic,
-		Key:   sarama.ByteEncoder(key),
-		Value: sarama.ByteEncoder(value),
-	}
-	_, _, err := p.producer.SendMessage(msg)
-	return err
+	return p.SafeSendToTopic(p.topic, key, value)
 }
 
 func (p *Producer) SendToTopic(topic string, key, value []byte) error {
+	return p.SafeSendToTopic(topic, key, value)
+}
+
+func (p *Producer) SafeSendToTopic(topic string, key, value []byte) error {
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
 		Key:   sarama.ByteEncoder(key),
 		Value: sarama.ByteEncoder(value),
 	}
-	_, _, err := p.producer.SendMessage(msg)
-	return err
+
+	var lastErr error
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		_, _, lastErr = p.producer.SendMessage(msg)
+		if lastErr == nil {
+			return nil
+		}
+
+		if i < maxRetries-1 {
+			backoff := time.Duration(i+1) * 200 * time.Millisecond
+			time.Sleep(backoff)
+		}
+	}
+	return fmt.Errorf("failed to send message to kafka after %d retries: %v", maxRetries, lastErr)
 }
 
 func (p *Producer) Close() error {

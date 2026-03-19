@@ -2,6 +2,8 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -59,6 +61,18 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update user info: "+err.Error())
 	}
+
+	// Send user_event to Kafka for cache invalidation
+	// we didn't push this to all users
+	event := map[string]interface{}{
+		"type":         "user_event",
+		"action":       "update",
+		"user_id":      userId,
+		"info_version": userInfo.InfoVersion,
+		"timestamp":    time.Now().Unix(),
+	}
+	data, _ := json.Marshal(event)
+	_ = l.svcCtx.Producer.Send([]byte(fmt.Sprintf("user_%d", userId)), data)
 
 	return &pb.UpdateUserResponse{
 		Base: &pb.BaseResponse{Code: 200, Message: "Success"},

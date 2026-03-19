@@ -10,6 +10,8 @@ import (
 	"github.com/archyhsh/gochat/api/internal/config"
 	"github.com/archyhsh/gochat/api/internal/middleware"
 	"github.com/archyhsh/gochat/pkg/auth"
+	"github.com/archyhsh/gochat/pkg/kafka"
+	"github.com/archyhsh/gochat/pkg/messaging"
 	"github.com/archyhsh/gochat/pkg/router"
 	"github.com/archyhsh/gochat/pkg/snowflake"
 	"github.com/archyhsh/gochat/rpc/group/groupservice"
@@ -19,8 +21,6 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
-
-	"github.com/IBM/sarama"
 )
 
 type ServiceContext struct {
@@ -31,7 +31,7 @@ type ServiceContext struct {
 	GroupRpc       groupservice.GroupService
 	MessageRpc     messageservice.MessageService
 	RelationRpc    relationservice.RelationService
-	KafkaProducer  sarama.SyncProducer
+	KafkaProducer  *messaging.ReliableProducer
 	Router         *router.Router
 	Conns          sync.Map
 }
@@ -39,12 +39,8 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	jwtManager := auth.NewJWTManager(c.JWT.JwtSecret, c.JWT.ExpireHours)
 	_ = snowflake.Init(1)
-	producerConfig := sarama.NewConfig()
-	producerConfig.Producer.RequiredAcks = sarama.WaitForAll
-	producerConfig.Producer.Retry.Max = 5
-	producerConfig.Producer.Return.Successes = true
 
-	producer, err := sarama.NewSyncProducer(c.Kafka.Brokers, producerConfig)
+	rawProducer, err := kafka.NewProducer(c.Kafka.Brokers, c.Kafka.Topic)
 	if err != nil {
 		panic("Failed to initialize Kafka producer: " + err.Error())
 	}
@@ -54,7 +50,11 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Pass: c.Redis[0].Pass,
 	})
 
+	failureStore := messaging.NewRedisFailureStore(rdb, "")
+	producer := messaging.NewReliableProducer(rawProducer, failureStore, c.Kafka.Topic)
+
 	serverAddr := fmt.Sprintf("%s:%d", c.Host, c.Port)
+
 	rt := router.NewRouter(rdb, serverAddr)
 
 	return &ServiceContext{

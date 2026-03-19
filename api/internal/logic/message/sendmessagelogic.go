@@ -11,7 +11,6 @@ import (
 	"github.com/archyhsh/gochat/pkg/snowflake"
 	"github.com/archyhsh/gochat/rpc/pb"
 
-	"github.com/IBM/sarama"
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/protobuf/proto"
 )
@@ -71,15 +70,9 @@ func (l *SendMessageLogic) SendMessage(req *types.SendMessageRequest) (resp *typ
 		return nil, err
 	}
 
-	msg := &sarama.ProducerMessage{
-		Topic: l.svcCtx.Config.Kafka.Topic,
-		Value: sarama.ByteEncoder(data),
-		Key:   sarama.StringEncoder(req.ConversationId),
-	}
-
-	_, _, err = l.svcCtx.KafkaProducer.SendMessage(msg)
+	err = l.svcCtx.KafkaProducer.Send([]byte(req.ConversationId), data)
 	if err != nil {
-		l.Errorf("Failed to send message to Kafka: %v", err)
+		l.Errorf("Failed to send message to Kafka after retries: %v", err)
 		return nil, err
 	}
 

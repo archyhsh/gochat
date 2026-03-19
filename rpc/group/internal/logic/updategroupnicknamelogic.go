@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"time"
 
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
@@ -31,14 +30,8 @@ func (l *UpdateGroupNicknameLogic) UpdateGroupNickname(in *pb.UpdateGroupNicknam
 		return nil, err
 	}
 
-	// Increment group meta version for announcement/nick changes
-	group, err := l.svcCtx.GroupModel.FindOne(l.ctx, in.GroupId)
-	var metaVersion int64
-	if err == nil && group != nil {
-		metaVersion = time.Now().UnixNano()
-		group.MetaVersion = metaVersion
-		_ = l.svcCtx.GroupModel.Update(l.ctx, group)
-	}
+	// We no longer increment Group Meta Version for individual nickname changes
+	// to avoid massive Kafka events and cache invalidations in large groups.
 
 	return &pb.UpdateGroupNicknameResponse{
 		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
