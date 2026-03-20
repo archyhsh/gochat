@@ -66,7 +66,7 @@ func (l *DismissGroupLogic) DismissGroup(in *pb.DismissGroupRequest) (*pb.Dismis
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		_ = l.svcCtx.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 	}
 
 	return &pb.DismissGroupResponse{

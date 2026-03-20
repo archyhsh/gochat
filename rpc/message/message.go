@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	_ "time/tzdata"
 
 	"github.com/archyhsh/gochat/pkg/kafka"
@@ -40,22 +41,40 @@ func main() {
 		panic(fmt.Sprintf("Failed to initialize snowflake: %v", err))
 	}
 
-	// 2. Start Kafka Consumer for async message persistence and group events
+	// 2. Start Kafka Consumers
 	handler := logic.NewMessageConsumerHandler(ctx)
-	consumer, err := kafka.NewConsumer(
+	hostname, _ := os.Hostname()
+
+	// 2.1 Persistence Consumer (Shared GroupID for Message Topic)
+	persistenceConsumer, err := kafka.NewConsumer(
 		c.Kafka.Brokers,
-		c.Kafka.GroupID,
-		[]string{c.Kafka.Topics.Message, c.Kafka.Topics.Group},
+		c.Kafka.GroupID, // e.g. "message-rpc-consumer-group"
+		[]string{c.Kafka.Topics.Message},
 		handler,
 	)
-	if err != nil {
-		logx.Errorf("Failed to create Kafka consumer: %v", err)
-	} else {
-		// Run consumer in a separate goroutine
+	if err == nil {
 		go func() {
-			logx.Infof("Starting Kafka consumer for topics: %s, %s", c.Kafka.Topics.Message, c.Kafka.Topics.Group)
-			if err := consumer.Start(context.Background()); err != nil {
-				logx.Errorf("Kafka consumer error: %v", err)
+			logx.Infof("Starting persistence consumer for topic: %s", c.Kafka.Topics.Message)
+			if err := persistenceConsumer.Start(context.Background()); err != nil {
+				logx.Errorf("Persistence consumer error: %v", err)
+			}
+		}()
+	}
+
+	// 2.2 Broadcast Consumer (Unique GroupID for Cache Invalidation Topics)
+	broadcastGroupID := fmt.Sprintf("%s-broadcast-%s", c.Kafka.GroupID, hostname)
+	broadcastConsumer, err := kafka.NewConsumer(
+		c.Kafka.Brokers,
+		broadcastGroupID,
+		[]string{c.Kafka.Topics.Group, c.Kafka.Topics.User},
+		handler,
+	)
+	if err == nil {
+		go func() {
+			logx.Infof("Starting broadcast consumer (ID: %s) for topics: %s, %s",
+				broadcastGroupID, c.Kafka.Topics.Group, c.Kafka.Topics.User)
+			if err := broadcastConsumer.Start(context.Background()); err != nil {
+				logx.Errorf("Broadcast consumer error: %v", err)
 			}
 		}()
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"log"
@@ -50,7 +51,7 @@ func main() {
 			}
 
 			log.Printf("Recovering message: topic=%s, key=%s", msg.Topic, msg.Key)
-			err = producer.SendToTopic(msg.Topic, []byte(msg.Key), []byte(msg.Value))
+			err = producer.SendToTopic(context.Background(), msg.Topic, []byte(msg.Key), []byte(msg.Value))
 			if err != nil {
 				log.Printf("Failed to re-send message: %v", err)
 				msg.RetryCount++

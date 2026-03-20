@@ -72,7 +72,7 @@ func (l *DeleteFriendLogic) DeleteFriend(in *pb.DeleteFriendRequest) (*pb.Delete
 		}
 		data, _ := json.Marshal(event)
 		key := fmt.Sprintf("friend_%d_%d", userId, in.FriendId)
-		_ = l.svcCtx.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 	}
 
 	return &pb.DeleteFriendResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}}, nil

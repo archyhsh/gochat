@@ -72,7 +72,7 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 		"timestamp":    time.Now().Unix(),
 	}
 	data, _ := json.Marshal(event)
-	_ = l.svcCtx.Producer.Send([]byte(fmt.Sprintf("user_%d", userId)), data)
+	_ = l.svcCtx.Producer.Send(l.ctx, []byte(fmt.Sprintf("user_%d", userId)), data)
 
 	return &pb.UpdateUserResponse{
 		Base: &pb.BaseResponse{Code: 200, Message: "Success"},

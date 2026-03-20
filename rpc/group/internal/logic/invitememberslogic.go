@@ -105,7 +105,7 @@ func (l *InviteMembersLogic) InviteMembers(in *pb.InviteMembersRequest) (*pb.Inv
 			"timestamp":  time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
-		_ = l.svcCtx.Producer.Send([]byte(strconv.FormatInt(in.GroupId, 10)), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(strconv.FormatInt(in.GroupId, 10)), data)
 	}
 
 	return &pb.InviteMembersResponse{

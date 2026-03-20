@@ -6,7 +6,61 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
+	"go.opentelemetry.io/otel"
 )
+
+type ProducerHeaderCarrier struct {
+	Headers *[]sarama.RecordHeader
+}
+
+func (c *ProducerHeaderCarrier) Get(key string) string {
+	for _, h := range *c.Headers {
+		if string(h.Key) == key {
+			return string(h.Value)
+		}
+	}
+	return ""
+}
+
+func (c *ProducerHeaderCarrier) Set(key string, value string) {
+	*c.Headers = append(*c.Headers, sarama.RecordHeader{
+		Key:   []byte(key),
+		Value: []byte(value),
+	})
+}
+
+func (c *ProducerHeaderCarrier) Keys() []string {
+	keys := make([]string, len(*c.Headers))
+	for i, h := range *c.Headers {
+		keys[i] = string(h.Key)
+	}
+	return keys
+}
+
+type ConsumerHeaderCarrier struct {
+	Headers []*sarama.RecordHeader
+}
+
+func (c *ConsumerHeaderCarrier) Get(key string) string {
+	for _, h := range c.Headers {
+		if string(h.Key) == key {
+			return string(h.Value)
+		}
+	}
+	return ""
+}
+
+func (c *ConsumerHeaderCarrier) Set(key string, value string) {
+	// Not usually used for extraction
+}
+
+func (c *ConsumerHeaderCarrier) Keys() []string {
+	keys := make([]string, len(c.Headers))
+	for i, h := range c.Headers {
+		keys[i] = string(h.Key)
+	}
+	return keys
+}
 
 type Producer struct {
 	producer sarama.SyncProducer
@@ -28,19 +82,24 @@ func NewProducer(brokers []string, topic string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) Send(key, value []byte) error {
-	return p.SafeSendToTopic(p.topic, key, value)
+func (p *Producer) Send(ctx context.Context, key, value []byte) error {
+	return p.SafeSendToTopic(ctx, p.topic, key, value)
 }
 
-func (p *Producer) SendToTopic(topic string, key, value []byte) error {
-	return p.SafeSendToTopic(topic, key, value)
+func (p *Producer) SendToTopic(ctx context.Context, topic string, key, value []byte) error {
+	return p.SafeSendToTopic(ctx, topic, key, value)
 }
 
-func (p *Producer) SafeSendToTopic(topic string, key, value []byte) error {
+func (p *Producer) SafeSendToTopic(ctx context.Context, topic string, key, value []byte) error {
+	var headers []sarama.RecordHeader
+	carrier := &ProducerHeaderCarrier{Headers: &headers}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+
 	msg := &sarama.ProducerMessage{
-		Topic: topic,
-		Key:   sarama.ByteEncoder(key),
-		Value: sarama.ByteEncoder(value),
+		Topic:   topic,
+		Key:     sarama.ByteEncoder(key),
+		Value:   sarama.ByteEncoder(value),
+		Headers: headers,
 	}
 
 	var lastErr error
@@ -116,8 +175,12 @@ func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { re
 
 func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
-		if err := h.handler.Handle(session.Context(), message); err != nil {
-			// 记录错误但继续处理
+		// Extract tracing context from Kafka headers
+		carrier := &ConsumerHeaderCarrier{Headers: message.Headers}
+		ctx := otel.GetTextMapPropagator().Extract(session.Context(), carrier)
+
+		if err := h.handler.Handle(ctx, message); err != nil {
+			// Log error but continue
 			continue
 		}
 		session.MarkMessage(message, "")

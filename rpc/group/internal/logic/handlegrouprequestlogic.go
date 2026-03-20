@@ -124,7 +124,7 @@ func (l *HandleGroupRequestLogic) HandleGroupRequest(in *pb.HandleGroupRequestRe
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
-		_ = l.svcCtx.Producer.Send([]byte(strconv.FormatInt(req.GroupId, 10)), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(strconv.FormatInt(req.GroupId, 10)), data)
 	}
 
 	return &pb.HandleGroupRequestResponse{

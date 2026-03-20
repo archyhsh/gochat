@@ -44,11 +44,9 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if err != nil {
 		panic("Failed to initialize Kafka producer: " + err.Error())
 	}
-	rdb := redis.MustNewRedis(redis.RedisConf{
-		Host: c.Redis[0].Host,
-		Type: c.Redis[0].Type,
-		Pass: c.Redis[0].Pass,
-	})
+
+	// Better Redis compatibility: supports cluster/sentinel if configured in YAML
+	rdb := redis.MustNewRedis(c.Redis[0].RedisConf)
 
 	failureStore := messaging.NewRedisFailureStore(rdb, "")
 	producer := messaging.NewReliableProducer(rawProducer, failureStore, c.Kafka.Topic)

@@ -33,7 +33,8 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	sqlConn := sqlx.NewMysql(c.DB.DataSource)
 
-	// Initialize Router using the first cache node
+	// Robust Redis initialization: uses the main cache node's configuration
+	// go-zero's redis.RedisConf internally handles cluster/sentinel if Type is set correctly.
 	rdb := redis.MustNewRedis(c.Cache[0].RedisConf)
 
 	return &ServiceContext{

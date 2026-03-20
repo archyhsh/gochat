@@ -9,6 +9,6 @@ type FailureStore interface {
 
 // Producer defines the basic behavior of a message producer.
 type Producer interface {
-	Send(key, value []byte) error
-	SendToTopic(topic string, key, value []byte) error
+	Send(ctx context.Context, key, value []byte) error
+	SendToTopic(ctx context.Context, topic string, key, value []byte) error
 }

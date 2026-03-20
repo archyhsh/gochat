@@ -55,7 +55,7 @@ func (l *HandleApplyLogic) HandleApply(in *pb.HandleApplyRequest) (*pb.HandleApp
 			}
 			data, _ := json.Marshal(event)
 			key := fmt.Sprintf("friend_%d_%d", apply.FromUserId, apply.ToUserId)
-			_ = l.svcCtx.Producer.Send([]byte(key), data)
+			_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 		}
 	} else {
 		apply.Status = 2
@@ -69,7 +69,7 @@ func (l *HandleApplyLogic) HandleApply(in *pb.HandleApplyRequest) (*pb.HandleApp
 			}
 			data, _ := json.Marshal(event)
 			key := fmt.Sprintf("friend_%d_%d", apply.FromUserId, apply.ToUserId)
-			_ = l.svcCtx.Producer.Send([]byte(key), data)
+			_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 		}
 	}
 	err = l.svcCtx.FriendApplyModel.Update(l.ctx, apply)

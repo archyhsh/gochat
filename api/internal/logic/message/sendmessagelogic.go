@@ -70,7 +70,7 @@ func (l *SendMessageLogic) SendMessage(req *types.SendMessageRequest) (resp *typ
 		return nil, err
 	}
 
-	err = l.svcCtx.KafkaProducer.Send([]byte(req.ConversationId), data)
+	err = l.svcCtx.KafkaProducer.Send(l.ctx, []byte(req.ConversationId), data)
 	if err != nil {
 		l.Errorf("Failed to send message to Kafka after retries: %v", err)
 		return nil, err

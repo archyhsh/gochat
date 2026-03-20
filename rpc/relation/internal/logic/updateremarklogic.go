@@ -76,7 +76,7 @@ func (l *UpdateRemarkLogic) UpdateRemark(in *pb.UpdateRemarkRequest) (*pb.Update
 		}
 		data, _ := json.Marshal(event)
 		key := fmt.Sprintf("remark_%d_%d", userId, in.FriendId)
-		_ = l.svcCtx.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 	}
 
 	return &pb.UpdateRemarkResponse{

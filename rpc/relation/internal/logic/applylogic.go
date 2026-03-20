@@ -73,7 +73,7 @@ func (l *ApplyLogic) Apply(in *pb.ApplyRequest) (*pb.ApplyResponse, error) {
 			"timestamp":    time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
-		_ = l.svcCtx.Producer.Send([]byte(strconv.FormatInt(in.ToUserId, 10)), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(strconv.FormatInt(in.ToUserId, 10)), data)
 	}
 
 	return &pb.ApplyResponse{Base: &pb.BaseResponse{Code: 200, Message: "Success"}}, nil
