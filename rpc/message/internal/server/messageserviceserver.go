@@ -52,3 +52,8 @@ func (s *MessageServiceServer) RestoreConversation(ctx context.Context, in *pb.R
 	l := logic.NewRestoreConversationLogic(ctx, s.svcCtx)
 	return l.RestoreConversation(in)
 }
+
+func (s *MessageServiceServer) DeleteConversation(ctx context.Context, in *pb.DeleteConversationRequest) (*pb.DeleteConversationResponse, error) {
+	l := logic.NewDeleteConversationLogic(ctx, s.svcCtx)
+	return l.DeleteConversation(in)
+}

@@ -7,7 +7,6 @@ import (
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
 	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/archyhsh/gochat/rpc/pb"
-	"github.com/archyhsh/gochat/rpc/user/userservice"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -80,7 +79,7 @@ func (l *GetGroupRequestsLogic) GetGroupRequests(in *pb.GetGroupRequestsRequest)
 	for _, r := range allRequests {
 		uids = append(uids, r.UserId)
 	}
-	userResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &userservice.GetUsersByIdsRequest{
+	userResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &pb.GetUsersByIdsRequest{
 		UserIds: uids,
 	})
 

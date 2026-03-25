@@ -136,6 +136,8 @@ func NewConsumer(brokers []string, groupID string, topics []string, handler Cons
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetNewest
+	// 关闭自动提交，改为手动提交以确保消息不丢失
+	config.Consumer.Offsets.AutoCommit.Enable = false
 	consumer, err := sarama.NewConsumerGroup(brokers, groupID, config)
 	if err != nil {
 		return nil, err
@@ -184,6 +186,8 @@ func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession,
 			continue
 		}
 		session.MarkMessage(message, "")
+		// 手动提交位移，确保消息在被成功处理后才被标记为已消费
+		session.Commit()
 	}
 	return nil
 }

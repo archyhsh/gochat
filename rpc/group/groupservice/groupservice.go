@@ -30,6 +30,8 @@ type (
 	GetGroupMembersResponse     = pb.GetGroupMembersResponse
 	GetGroupRequestsRequest     = pb.GetGroupRequestsRequest
 	GetGroupRequestsResponse    = pb.GetGroupRequestsResponse
+	GetGroupsByIdsRequest       = pb.GetGroupsByIdsRequest
+	GetGroupsByIdsResponse      = pb.GetGroupsByIdsResponse
 	Group                       = pb.Group
 	GroupMember                 = pb.GroupMember
 	GroupRequest                = pb.GroupRequest
@@ -67,6 +69,7 @@ type (
 		UpdateGroupNickname(ctx context.Context, in *UpdateGroupNicknameRequest, opts ...grpc.CallOption) (*UpdateGroupNicknameResponse, error)
 		GetGroupRequests(ctx context.Context, in *GetGroupRequestsRequest, opts ...grpc.CallOption) (*GetGroupRequestsResponse, error)
 		HandleGroupRequest(ctx context.Context, in *HandleGroupRequestRequest, opts ...grpc.CallOption) (*HandleGroupRequestResponse, error)
+		GetGroupsByIds(ctx context.Context, in *GetGroupsByIdsRequest, opts ...grpc.CallOption) (*GetGroupsByIdsResponse, error)
 	}
 
 	defaultGroupService struct {
@@ -158,4 +161,9 @@ func (m *defaultGroupService) GetGroupRequests(ctx context.Context, in *GetGroup
 func (m *defaultGroupService) HandleGroupRequest(ctx context.Context, in *HandleGroupRequestRequest, opts ...grpc.CallOption) (*HandleGroupRequestResponse, error) {
 	client := pb.NewGroupServiceClient(m.cli.Conn())
 	return client.HandleGroupRequest(ctx, in, opts...)
+}
+
+func (m *defaultGroupService) GetGroupsByIds(ctx context.Context, in *GetGroupsByIdsRequest, opts ...grpc.CallOption) (*GetGroupsByIdsResponse, error) {
+	client := pb.NewGroupServiceClient(m.cli.Conn())
+	return client.GetGroupsByIds(ctx, in, opts...)
 }

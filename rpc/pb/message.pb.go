@@ -23,8 +23,7 @@ const (
 
 type RestoreConversationRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	UserId         int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	ConversationId string                 `protobuf:"bytes,2,opt,name=conversation_id,json=conversationId,proto3" json:"conversation_id,omitempty"`
+	ConversationId string                 `protobuf:"bytes,1,opt,name=conversation_id,json=conversationId,proto3" json:"conversation_id,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -57,13 +56,6 @@ func (x *RestoreConversationRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RestoreConversationRequest.ProtoReflect.Descriptor instead.
 func (*RestoreConversationRequest) Descriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *RestoreConversationRequest) GetUserId() int64 {
-	if x != nil {
-		return x.UserId
-	}
-	return 0
 }
 
 func (x *RestoreConversationRequest) GetConversationId() string {
@@ -270,6 +262,8 @@ type ConversationInfo struct {
 	IsTop           int32                  `protobuf:"varint,9,opt,name=is_top,json=isTop,proto3" json:"is_top,omitempty"`
 	IsMuted         int32                  `protobuf:"varint,10,opt,name=is_muted,json=isMuted,proto3" json:"is_muted,omitempty"`
 	Version         int64                  `protobuf:"varint,11,opt,name=version,proto3" json:"version,omitempty"`
+	PeerNickname    string                 `protobuf:"bytes,12,opt,name=peer_nickname,json=peerNickname,proto3" json:"peer_nickname,omitempty"`
+	PeerAvatar      string                 `protobuf:"bytes,13,opt,name=peer_avatar,json=peerAvatar,proto3" json:"peer_avatar,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -379,6 +373,20 @@ func (x *ConversationInfo) GetVersion() int64 {
 		return x.Version
 	}
 	return 0
+}
+
+func (x *ConversationInfo) GetPeerNickname() string {
+	if x != nil {
+		return x.PeerNickname
+	}
+	return ""
+}
+
+func (x *ConversationInfo) GetPeerAvatar() string {
+	if x != nil {
+		return x.PeerAvatar
+	}
+	return ""
 }
 
 type GetMessagesRequest struct {
@@ -796,6 +804,7 @@ type ChatMessageEvent struct {
 	SenderInfoVersion int64                  `protobuf:"varint,11,opt,name=sender_info_version,json=senderInfoVersion,proto3" json:"sender_info_version,omitempty"`
 	GroupMetaVersion  int64                  `protobuf:"varint,12,opt,name=group_meta_version,json=groupMetaVersion,proto3" json:"group_meta_version,omitempty"`
 	RelationVersion   int64                  `protobuf:"varint,13,opt,name=relation_version,json=relationVersion,proto3" json:"relation_version,omitempty"`
+	Sequence          int64                  `protobuf:"varint,14,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -921,6 +930,13 @@ func (x *ChatMessageEvent) GetRelationVersion() int64 {
 	return 0
 }
 
+func (x *ChatMessageEvent) GetSequence() int64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
 type SaveMessageRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       *ChatMessageEvent      `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -968,6 +984,7 @@ func (x *SaveMessageRequest) GetMessage() *ChatMessageEvent {
 type SaveMessageResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Base          *BaseResponse          `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	Sequence      int64                  `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1009,15 +1026,109 @@ func (x *SaveMessageResponse) GetBase() *BaseResponse {
 	return nil
 }
 
+func (x *SaveMessageResponse) GetSequence() int64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+type DeleteConversationRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ConversationId string                 `protobuf:"bytes,1,opt,name=conversation_id,json=conversationId,proto3" json:"conversation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *DeleteConversationRequest) Reset() {
+	*x = DeleteConversationRequest{}
+	mi := &file_message_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteConversationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteConversationRequest) ProtoMessage() {}
+
+func (x *DeleteConversationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_message_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteConversationRequest.ProtoReflect.Descriptor instead.
+func (*DeleteConversationRequest) Descriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *DeleteConversationRequest) GetConversationId() string {
+	if x != nil {
+		return x.ConversationId
+	}
+	return ""
+}
+
+type DeleteConversationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Base          *BaseResponse          `protobuf:"bytes,1,opt,name=base,proto3" json:"base,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteConversationResponse) Reset() {
+	*x = DeleteConversationResponse{}
+	mi := &file_message_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteConversationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteConversationResponse) ProtoMessage() {}
+
+func (x *DeleteConversationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_message_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteConversationResponse.ProtoReflect.Descriptor instead.
+func (*DeleteConversationResponse) Descriptor() ([]byte, []int) {
+	return file_message_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DeleteConversationResponse) GetBase() *BaseResponse {
+	if x != nil {
+		return x.Base
+	}
+	return nil
+}
+
 var File_message_proto protoreflect.FileDescriptor
 
 const file_message_proto_rawDesc = "" +
 	"\n" +
 	"\rmessage.proto\x12\n" +
-	"gochat.rpc\x1a\fcommon.proto\"^\n" +
-	"\x1aRestoreConversationRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12'\n" +
-	"\x0fconversation_id\x18\x02 \x01(\tR\x0econversationId\"K\n" +
+	"gochat.rpc\x1a\fcommon.proto\"E\n" +
+	"\x1aRestoreConversationRequest\x12'\n" +
+	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\"K\n" +
 	"\x1bRestoreConversationResponse\x12,\n" +
 	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\"\xb6\x03\n" +
 	"\vChatMessage\x12\x15\n" +
@@ -1035,7 +1146,7 @@ const file_message_proto_rawDesc = "" +
 	" \x01(\x03R\bsequence\x12.\n" +
 	"\x13sender_info_version\x18\v \x01(\x03R\x11senderInfoVersion\x12,\n" +
 	"\x12group_meta_version\x18\f \x01(\x03R\x10groupMetaVersion\x12)\n" +
-	"\x10relation_version\x18\r \x01(\x03R\x0frelationVersion\"\xfc\x02\n" +
+	"\x10relation_version\x18\r \x01(\x03R\x0frelationVersion\"\xc2\x03\n" +
 	"\x10ConversationInfo\x12'\n" +
 	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\x12\x17\n" +
 	"\apeer_id\x18\x02 \x01(\x03R\x06peerId\x12!\n" +
@@ -1048,7 +1159,10 @@ const file_message_proto_rawDesc = "" +
 	"\x06is_top\x18\t \x01(\x05R\x05isTop\x12\x19\n" +
 	"\bis_muted\x18\n" +
 	" \x01(\x05R\aisMuted\x12\x18\n" +
-	"\aversion\x18\v \x01(\x03R\aversion\"x\n" +
+	"\aversion\x18\v \x01(\x03R\aversion\x12#\n" +
+	"\rpeer_nickname\x18\f \x01(\tR\fpeerNickname\x12\x1f\n" +
+	"\vpeer_avatar\x18\r \x01(\tR\n" +
+	"peerAvatar\"x\n" +
 	"\x12GetMessagesRequest\x12'\n" +
 	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12#\n" +
@@ -1070,7 +1184,7 @@ const file_message_proto_rawDesc = "" +
 	"\x06msg_id\x18\x01 \x01(\tR\x05msgId\"y\n" +
 	"\x16GetMessageByIDResponse\x12,\n" +
 	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\x121\n" +
-	"\amessage\x18\x02 \x01(\v2\x17.gochat.rpc.ChatMessageR\amessage\"\xc1\x03\n" +
+	"\amessage\x18\x02 \x01(\v2\x17.gochat.rpc.ChatMessageR\amessage\"\xdd\x03\n" +
 	"\x10ChatMessageEvent\x12\x15\n" +
 	"\x06msg_id\x18\x01 \x01(\tR\x05msgId\x12'\n" +
 	"\x0fconversation_id\x18\x02 \x01(\tR\x0econversationId\x12\x1b\n" +
@@ -1087,18 +1201,25 @@ const file_message_proto_rawDesc = "" +
 	" \x03(\x03R\ttargetIds\x12.\n" +
 	"\x13sender_info_version\x18\v \x01(\x03R\x11senderInfoVersion\x12,\n" +
 	"\x12group_meta_version\x18\f \x01(\x03R\x10groupMetaVersion\x12)\n" +
-	"\x10relation_version\x18\r \x01(\x03R\x0frelationVersion\"L\n" +
+	"\x10relation_version\x18\r \x01(\x03R\x0frelationVersion\x12\x1a\n" +
+	"\bsequence\x18\x0e \x01(\x03R\bsequence\"L\n" +
 	"\x12SaveMessageRequest\x126\n" +
-	"\amessage\x18\x01 \x01(\v2\x1c.gochat.rpc.ChatMessageEventR\amessage\"C\n" +
+	"\amessage\x18\x01 \x01(\v2\x1c.gochat.rpc.ChatMessageEventR\amessage\"_\n" +
 	"\x13SaveMessageResponse\x12,\n" +
-	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base2\xa0\x04\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base\x12\x1a\n" +
+	"\bsequence\x18\x02 \x01(\x03R\bsequence\"D\n" +
+	"\x19DeleteConversationRequest\x12'\n" +
+	"\x0fconversation_id\x18\x01 \x01(\tR\x0econversationId\"J\n" +
+	"\x1aDeleteConversationResponse\x12,\n" +
+	"\x04base\x18\x01 \x01(\v2\x18.gochat.rpc.BaseResponseR\x04base2\x85\x05\n" +
 	"\x0eMessageService\x12N\n" +
 	"\vGetMessages\x12\x1e.gochat.rpc.GetMessagesRequest\x1a\x1f.gochat.rpc.GetMessagesResponse\x12]\n" +
 	"\x10GetConversations\x12#.gochat.rpc.GetConversationsRequest\x1a$.gochat.rpc.GetConversationsResponse\x12N\n" +
 	"\vClearUnread\x12\x1e.gochat.rpc.ClearUnreadRequest\x1a\x1f.gochat.rpc.ClearUnreadResponse\x12W\n" +
 	"\x0eGetMessageByID\x12!.gochat.rpc.GetMessageByIDRequest\x1a\".gochat.rpc.GetMessageByIDResponse\x12N\n" +
 	"\vSaveMessage\x12\x1e.gochat.rpc.SaveMessageRequest\x1a\x1f.gochat.rpc.SaveMessageResponse\x12f\n" +
-	"\x13RestoreConversation\x12&.gochat.rpc.RestoreConversationRequest\x1a'.gochat.rpc.RestoreConversationResponseB\x06Z\x04./pbb\x06proto3"
+	"\x13RestoreConversation\x12&.gochat.rpc.RestoreConversationRequest\x1a'.gochat.rpc.RestoreConversationResponse\x12c\n" +
+	"\x12DeleteConversation\x12%.gochat.rpc.DeleteConversationRequest\x1a&.gochat.rpc.DeleteConversationResponseB\x06Z\x04./pbb\x06proto3"
 
 var (
 	file_message_proto_rawDescOnce sync.Once
@@ -1112,7 +1233,7 @@ func file_message_proto_rawDescGZIP() []byte {
 	return file_message_proto_rawDescData
 }
 
-var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_message_proto_goTypes = []any{
 	(*RestoreConversationRequest)(nil),  // 0: gochat.rpc.RestoreConversationRequest
 	(*RestoreConversationResponse)(nil), // 1: gochat.rpc.RestoreConversationResponse
@@ -1129,36 +1250,41 @@ var file_message_proto_goTypes = []any{
 	(*ChatMessageEvent)(nil),            // 12: gochat.rpc.ChatMessageEvent
 	(*SaveMessageRequest)(nil),          // 13: gochat.rpc.SaveMessageRequest
 	(*SaveMessageResponse)(nil),         // 14: gochat.rpc.SaveMessageResponse
-	(*BaseResponse)(nil),                // 15: gochat.rpc.BaseResponse
+	(*DeleteConversationRequest)(nil),   // 15: gochat.rpc.DeleteConversationRequest
+	(*DeleteConversationResponse)(nil),  // 16: gochat.rpc.DeleteConversationResponse
+	(*BaseResponse)(nil),                // 17: gochat.rpc.BaseResponse
 }
 var file_message_proto_depIdxs = []int32{
-	15, // 0: gochat.rpc.RestoreConversationResponse.base:type_name -> gochat.rpc.BaseResponse
-	15, // 1: gochat.rpc.GetMessagesResponse.base:type_name -> gochat.rpc.BaseResponse
+	17, // 0: gochat.rpc.RestoreConversationResponse.base:type_name -> gochat.rpc.BaseResponse
+	17, // 1: gochat.rpc.GetMessagesResponse.base:type_name -> gochat.rpc.BaseResponse
 	2,  // 2: gochat.rpc.GetMessagesResponse.messages:type_name -> gochat.rpc.ChatMessage
-	15, // 3: gochat.rpc.GetConversationsResponse.base:type_name -> gochat.rpc.BaseResponse
+	17, // 3: gochat.rpc.GetConversationsResponse.base:type_name -> gochat.rpc.BaseResponse
 	3,  // 4: gochat.rpc.GetConversationsResponse.conversations:type_name -> gochat.rpc.ConversationInfo
-	15, // 5: gochat.rpc.ClearUnreadResponse.base:type_name -> gochat.rpc.BaseResponse
-	15, // 6: gochat.rpc.GetMessageByIDResponse.base:type_name -> gochat.rpc.BaseResponse
+	17, // 5: gochat.rpc.ClearUnreadResponse.base:type_name -> gochat.rpc.BaseResponse
+	17, // 6: gochat.rpc.GetMessageByIDResponse.base:type_name -> gochat.rpc.BaseResponse
 	2,  // 7: gochat.rpc.GetMessageByIDResponse.message:type_name -> gochat.rpc.ChatMessage
 	12, // 8: gochat.rpc.SaveMessageRequest.message:type_name -> gochat.rpc.ChatMessageEvent
-	15, // 9: gochat.rpc.SaveMessageResponse.base:type_name -> gochat.rpc.BaseResponse
-	4,  // 10: gochat.rpc.MessageService.GetMessages:input_type -> gochat.rpc.GetMessagesRequest
-	6,  // 11: gochat.rpc.MessageService.GetConversations:input_type -> gochat.rpc.GetConversationsRequest
-	8,  // 12: gochat.rpc.MessageService.ClearUnread:input_type -> gochat.rpc.ClearUnreadRequest
-	10, // 13: gochat.rpc.MessageService.GetMessageByID:input_type -> gochat.rpc.GetMessageByIDRequest
-	13, // 14: gochat.rpc.MessageService.SaveMessage:input_type -> gochat.rpc.SaveMessageRequest
-	0,  // 15: gochat.rpc.MessageService.RestoreConversation:input_type -> gochat.rpc.RestoreConversationRequest
-	5,  // 16: gochat.rpc.MessageService.GetMessages:output_type -> gochat.rpc.GetMessagesResponse
-	7,  // 17: gochat.rpc.MessageService.GetConversations:output_type -> gochat.rpc.GetConversationsResponse
-	9,  // 18: gochat.rpc.MessageService.ClearUnread:output_type -> gochat.rpc.ClearUnreadResponse
-	11, // 19: gochat.rpc.MessageService.GetMessageByID:output_type -> gochat.rpc.GetMessageByIDResponse
-	14, // 20: gochat.rpc.MessageService.SaveMessage:output_type -> gochat.rpc.SaveMessageResponse
-	1,  // 21: gochat.rpc.MessageService.RestoreConversation:output_type -> gochat.rpc.RestoreConversationResponse
-	16, // [16:22] is the sub-list for method output_type
-	10, // [10:16] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	17, // 9: gochat.rpc.SaveMessageResponse.base:type_name -> gochat.rpc.BaseResponse
+	17, // 10: gochat.rpc.DeleteConversationResponse.base:type_name -> gochat.rpc.BaseResponse
+	4,  // 11: gochat.rpc.MessageService.GetMessages:input_type -> gochat.rpc.GetMessagesRequest
+	6,  // 12: gochat.rpc.MessageService.GetConversations:input_type -> gochat.rpc.GetConversationsRequest
+	8,  // 13: gochat.rpc.MessageService.ClearUnread:input_type -> gochat.rpc.ClearUnreadRequest
+	10, // 14: gochat.rpc.MessageService.GetMessageByID:input_type -> gochat.rpc.GetMessageByIDRequest
+	13, // 15: gochat.rpc.MessageService.SaveMessage:input_type -> gochat.rpc.SaveMessageRequest
+	0,  // 16: gochat.rpc.MessageService.RestoreConversation:input_type -> gochat.rpc.RestoreConversationRequest
+	15, // 17: gochat.rpc.MessageService.DeleteConversation:input_type -> gochat.rpc.DeleteConversationRequest
+	5,  // 18: gochat.rpc.MessageService.GetMessages:output_type -> gochat.rpc.GetMessagesResponse
+	7,  // 19: gochat.rpc.MessageService.GetConversations:output_type -> gochat.rpc.GetConversationsResponse
+	9,  // 20: gochat.rpc.MessageService.ClearUnread:output_type -> gochat.rpc.ClearUnreadResponse
+	11, // 21: gochat.rpc.MessageService.GetMessageByID:output_type -> gochat.rpc.GetMessageByIDResponse
+	14, // 22: gochat.rpc.MessageService.SaveMessage:output_type -> gochat.rpc.SaveMessageResponse
+	1,  // 23: gochat.rpc.MessageService.RestoreConversation:output_type -> gochat.rpc.RestoreConversationResponse
+	16, // 24: gochat.rpc.MessageService.DeleteConversation:output_type -> gochat.rpc.DeleteConversationResponse
+	18, // [18:25] is the sub-list for method output_type
+	11, // [11:18] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_message_proto_init() }
@@ -1173,7 +1299,7 @@ func file_message_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_message_proto_rawDesc), len(file_message_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

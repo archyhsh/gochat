@@ -2,21 +2,22 @@ Name: user.rpc
 ListenOn: 0.0.0.0:8081
 Etcd:
   Hosts:
-  - 127.0.0.1:2379
+  - ${ETCD_HOST:127.0.0.1:2379}
   Key: user.rpc
 
 DB:
-  DataSource: gochat:gochat123@tcp(127.0.0.1:3306)/gochat?charset=utf8mb4&parseTime=true&loc=UTC
+  DataSource: ${DB_SOURCE:gochat:gochat123@tcp(127.0.0.1:3306)/gochat?charset=utf8mb4&parseTime=true&loc=UTC}
 
 Cache:
-  - Host: 127.0.0.1:6379
+  - Host: ${REDIS_HOST:127.0.0.1:6379}
     Pass: ""
     Type: node
 
 Kafka:
   Brokers:
-    - 127.0.0.1:9092
+    - ${KAFKA_BROKERS:127.0.0.1:9092}
   Topic: user-topic
+
 JWT:
   AccessSecret: ${JWT_SECRET:gochat-default-secret-key}
   AccessExpire: 604800
@@ -28,6 +29,6 @@ Prometheus:
 
 Telemetry:
   Name: user.rpc
-  Endpoint: http://127.0.0.1:4317
+  Endpoint: ${TELEMETRY_ENDPOINT:http://127.0.0.1:4317}
   Sampler: 1.0
   Batcher: otlpgrpc

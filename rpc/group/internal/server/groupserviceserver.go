@@ -102,3 +102,8 @@ func (s *GroupServiceServer) HandleGroupRequest(ctx context.Context, in *pb.Hand
 	l := logic.NewHandleGroupRequestLogic(ctx, s.svcCtx)
 	return l.HandleGroupRequest(in)
 }
+
+func (s *GroupServiceServer) GetGroupsByIds(ctx context.Context, in *pb.GetGroupsByIdsRequest) (*pb.GetGroupsByIdsResponse, error) {
+	l := logic.NewGetGroupsByIdsLogic(ctx, s.svcCtx)
+	return l.GetGroupsByIds(in)
+}

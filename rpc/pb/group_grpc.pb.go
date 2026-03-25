@@ -35,6 +35,7 @@ const (
 	GroupService_UpdateGroupNickname_FullMethodName = "/gochat.rpc.GroupService/UpdateGroupNickname"
 	GroupService_GetGroupRequests_FullMethodName    = "/gochat.rpc.GroupService/GetGroupRequests"
 	GroupService_HandleGroupRequest_FullMethodName  = "/gochat.rpc.GroupService/HandleGroupRequest"
+	GroupService_GetGroupsByIds_FullMethodName      = "/gochat.rpc.GroupService/GetGroupsByIds"
 )
 
 // GroupServiceClient is the client API for GroupService service.
@@ -57,6 +58,7 @@ type GroupServiceClient interface {
 	UpdateGroupNickname(ctx context.Context, in *UpdateGroupNicknameRequest, opts ...grpc.CallOption) (*UpdateGroupNicknameResponse, error)
 	GetGroupRequests(ctx context.Context, in *GetGroupRequestsRequest, opts ...grpc.CallOption) (*GetGroupRequestsResponse, error)
 	HandleGroupRequest(ctx context.Context, in *HandleGroupRequestRequest, opts ...grpc.CallOption) (*HandleGroupRequestResponse, error)
+	GetGroupsByIds(ctx context.Context, in *GetGroupsByIdsRequest, opts ...grpc.CallOption) (*GetGroupsByIdsResponse, error)
 }
 
 type groupServiceClient struct {
@@ -227,6 +229,16 @@ func (c *groupServiceClient) HandleGroupRequest(ctx context.Context, in *HandleG
 	return out, nil
 }
 
+func (c *groupServiceClient) GetGroupsByIds(ctx context.Context, in *GetGroupsByIdsRequest, opts ...grpc.CallOption) (*GetGroupsByIdsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetGroupsByIdsResponse)
+	err := c.cc.Invoke(ctx, GroupService_GetGroupsByIds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // GroupServiceServer is the server API for GroupService service.
 // All implementations must embed UnimplementedGroupServiceServer
 // for forward compatibility.
@@ -247,6 +259,7 @@ type GroupServiceServer interface {
 	UpdateGroupNickname(context.Context, *UpdateGroupNicknameRequest) (*UpdateGroupNicknameResponse, error)
 	GetGroupRequests(context.Context, *GetGroupRequestsRequest) (*GetGroupRequestsResponse, error)
 	HandleGroupRequest(context.Context, *HandleGroupRequestRequest) (*HandleGroupRequestResponse, error)
+	GetGroupsByIds(context.Context, *GetGroupsByIdsRequest) (*GetGroupsByIdsResponse, error)
 	mustEmbedUnimplementedGroupServiceServer()
 }
 
@@ -304,6 +317,9 @@ func (UnimplementedGroupServiceServer) GetGroupRequests(context.Context, *GetGro
 }
 func (UnimplementedGroupServiceServer) HandleGroupRequest(context.Context, *HandleGroupRequestRequest) (*HandleGroupRequestResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HandleGroupRequest not implemented")
+}
+func (UnimplementedGroupServiceServer) GetGroupsByIds(context.Context, *GetGroupsByIdsRequest) (*GetGroupsByIdsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetGroupsByIds not implemented")
 }
 func (UnimplementedGroupServiceServer) mustEmbedUnimplementedGroupServiceServer() {}
 func (UnimplementedGroupServiceServer) testEmbeddedByValue()                      {}
@@ -614,6 +630,24 @@ func _GroupService_HandleGroupRequest_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _GroupService_GetGroupsByIds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGroupsByIdsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GroupServiceServer).GetGroupsByIds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GroupService_GetGroupsByIds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GroupServiceServer).GetGroupsByIds(ctx, req.(*GetGroupsByIdsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // GroupService_ServiceDesc is the grpc.ServiceDesc for GroupService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -684,6 +718,10 @@ var GroupService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "HandleGroupRequest",
 			Handler:    _GroupService_HandleGroupRequest_Handler,
+		},
+		{
+			MethodName: "GetGroupsByIds",
+			Handler:    _GroupService_GetGroupsByIds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -3,17 +3,25 @@ Host: 0.0.0.0
 Port: 8888
 
 UserRpc: 
-  Endpoints:
-    - 127.0.0.1:8081
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST:127.0.0.1:2379}
+    Key: user.rpc
 MessageRpc:
-  Endpoints:
-    - 127.0.0.1:8084
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST:127.0.0.1:2379}
+    Key: message.rpc
 RelationRpc:
-  Endpoints:
-    - 127.0.0.1:8083
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST:127.0.0.1:2379}
+    Key: relation.rpc
 GroupRpc:
-  Endpoints:
-    - 127.0.0.1:8082
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST:127.0.0.1:2379}
+    Key: group.rpc
 
 JWT:
   JwtSecret: ${JWT_SECRET:gochat-default-secret-key}
@@ -21,16 +29,16 @@ JWT:
 
 Kafka:
   Brokers:
-    - 127.0.0.1:9092
+    - ${KAFKA_BROKERS:127.0.0.1:9092}
   Topic: message-topic
 
 Redis:
-  - Host: 127.0.0.1:6379
+  - Host: ${REDIS_HOST:127.0.0.1:6379}
     Type: node
 
 Etcd:
   Hosts:
-    - 127.0.0.1:2379
+    - ${ETCD_HOST:127.0.0.1:2379}
   Key: gateway.api.router
 
 Prometheus:
@@ -40,6 +48,6 @@ Prometheus:
 
 Telemetry:
   Name: gateway.api
-  Endpoint: http://127.0.0.1:4317
+  Endpoint: ${TELEMETRY_ENDPOINT:http://127.0.0.1:4317}
   Sampler: 1.0
   Batcher: otlpgrpc

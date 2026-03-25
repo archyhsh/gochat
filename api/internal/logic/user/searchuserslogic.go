@@ -5,6 +5,7 @@ package user
 
 import (
 	"context"
+	"strings"
 
 	"github.com/archyhsh/gochat/api/internal/svc"
 	"github.com/archyhsh/gochat/api/internal/types"
@@ -39,13 +40,35 @@ func (l *SearchUsersLogic) SearchUsers(req *types.SearchRequest) (resp *types.Se
 	}
 	var users []types.User
 	for _, u := range rpcResp.Users {
+		// Mask sensitive data for public search
+		maskedUsername := ""
+		if len(u.Username) > 4 {
+			maskedUsername = u.Username[:2] + "****" + u.Username[len(u.Username)-2:]
+		} else if len(u.Username) > 0 {
+			maskedUsername = u.Username[:1] + "****"
+		}
+
+		maskedPhone := ""
+		if len(u.Phone) >= 7 {
+			maskedPhone = u.Phone[:3] + "****" + u.Phone[len(u.Phone)-4:]
+		}
+
+		maskedEmail := ""
+		if parts := strings.Split(u.Email, "@"); len(parts) == 2 {
+			if len(parts[0]) > 2 {
+				maskedEmail = parts[0][:2] + "****@" + parts[1]
+			} else {
+				maskedEmail = "****@" + parts[1]
+			}
+		}
+
 		users = append(users, types.User{
 			Id:       u.Id,
-			Username: u.Username,
+			Username: maskedUsername,
 			Nickname: u.Nickname,
 			Avatar:   u.Avatar,
-			Phone:    u.Phone,
-			Email:    u.Email,
+			Phone:    maskedPhone,
+			Email:    maskedEmail,
 			Gender:   int(u.Gender),
 		})
 	}

@@ -1,6 +1,8 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+USE `gochat_group`;
+
 CREATE TABLE IF NOT EXISTS `group` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL,
@@ -26,7 +28,6 @@ CREATE TABLE IF NOT EXISTS `group_member` (
   `user_id` BIGINT NOT NULL,
   `role` TINYINT DEFAULT 0 COMMENT 'role: 0member 1adminstrator 2owner',
   `nickname` VARCHAR(50) DEFAULT '' COMMENT 'nickname in group',
-  `info_version` BIGINT NOT NULL DEFAULT 0 COMMENT 'group member nickname version',
   `muted_until` TIMESTAMP NULL DEFAULT NULL COMMENT 'only before this time can send message, controlled by admin or owner',
   `joined_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

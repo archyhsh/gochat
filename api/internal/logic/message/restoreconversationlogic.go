@@ -37,7 +37,6 @@ func (l *RestoreConversationLogic) RestoreConversation(req *types.RestoreConvers
 	ctx := metadata.NewOutgoingContext(l.ctx, md)
 
 	_, err = l.svcCtx.MessageRpc.RestoreConversation(ctx, &messageservice.RestoreConversationRequest{
-		UserId:         userId,
 		ConversationId: req.ConversationId,
 	})
 	if err != nil {

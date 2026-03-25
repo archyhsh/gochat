@@ -2,13 +2,15 @@ package logic
 
 import (
 	"context"
+	"strconv"
 
 	"fmt"
 
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
+	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/archyhsh/gochat/rpc/pb"
-	"github.com/archyhsh/gochat/rpc/user/userservice"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -29,6 +31,29 @@ func NewGetGroupMembersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *G
 }
 
 func (l *GetGroupMembersLogic) GetGroupMembers(in *pb.GetGroupMembersRequest) (*pb.GetGroupMembersResponse, error) {
+	// Authentication: Extract user_id from metadata
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found")
+	}
+	userId, _ := strconv.ParseInt(userIdStrs[0], 10, 64)
+
+	// Authorization: Check if the requester is a member of the group
+	caller, err := l.svcCtx.GroupMemberModel.FindOneByGroupIdUserId(l.ctx, in.GroupId, userId)
+	if err != nil {
+		if err == model.ErrNotFound {
+			return nil, status.Error(codes.PermissionDenied, "access denied: not a group member")
+		}
+		return nil, status.Error(codes.Internal, "failed to verify group membership")
+	}
+	if caller == nil {
+		return nil, status.Error(codes.PermissionDenied, "access denied: not a group member")
+	}
+
 	// get all group members in a group in group member model
 	members, err := l.svcCtx.GroupMemberModel.FindMembersByGroupId(l.ctx, in.GroupId)
 	if err != nil {
@@ -47,7 +72,7 @@ func (l *GetGroupMembersLogic) GetGroupMembers(in *pb.GetGroupMembersRequest) (*
 		uids = append(uids, m.UserId)
 	}
 
-	userResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &userservice.GetUsersByIdsRequest{
+	userResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &pb.GetUsersByIdsRequest{
 		UserIds: uids,
 	})
 
@@ -83,12 +108,11 @@ func (l *GetGroupMembersLogic) GetGroupMembers(in *pb.GetGroupMembersRequest) (*
 		}
 
 		pbMembers = append(pbMembers, &pb.GroupMember{
-			UserId:      m.UserId,
-			Nickname:    displayNick,
-			Avatar:      avatar,
-			Role:        int32(m.Role),
-			JoinedAt:    m.JoinedAt.Unix(),
-			InfoVersion: m.InfoVersion,
+			UserId:   m.UserId,
+			Nickname: displayNick,
+			Avatar:   avatar,
+			Role:     int32(m.Role),
+			JoinedAt: m.JoinedAt.Unix(),
 		})
 	}
 

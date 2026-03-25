@@ -43,16 +43,15 @@ type (
 	}
 
 	GroupMember struct {
-		Id          int64        `db:"id"`
-		GroupId     int64        `db:"group_id"`
-		UserId      int64        `db:"user_id"`
-		Role        int64        `db:"role"`        // role: 0member 1adminstrator 2owner
-		Nickname    string       `db:"nickname"`    // nickname in group
-		MutedUntil  sql.NullTime `db:"muted_until"` // only before this time can send message, controlled by admin or owner
-		JoinedAt    time.Time    `db:"joined_at"`
-		CreatedAt   time.Time    `db:"created_at"`
-		UpdatedAt   time.Time    `db:"updated_at"`
-		InfoVersion int64        `db:"info_version"`
+		Id         int64        `db:"id"`
+		GroupId    int64        `db:"group_id"`
+		UserId     int64        `db:"user_id"`
+		Role       int64        `db:"role"`        // role: 0member 1adminstrator 2owner
+		Nickname   string       `db:"nickname"`    // nickname in group
+		MutedUntil sql.NullTime `db:"muted_until"` // only before this time can send message, controlled by admin or owner
+		JoinedAt   time.Time    `db:"joined_at"`
+		CreatedAt  time.Time    `db:"created_at"`
+		UpdatedAt  time.Time    `db:"updated_at"`
 	}
 )
 
@@ -119,8 +118,8 @@ func (m *defaultGroupMemberModel) Insert(ctx context.Context, data *GroupMember)
 	groupMemberGroupIdUserIdKey := fmt.Sprintf("%s%v:%v", cacheGroupMemberGroupIdUserIdPrefix, data.GroupId, data.UserId)
 	groupMemberIdKey := fmt.Sprintf("%s%v", cacheGroupMemberIdPrefix, data.Id)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?)", m.table, groupMemberRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.GroupId, data.UserId, data.Role, data.Nickname, data.MutedUntil, data.JoinedAt, data.InfoVersion)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?)", m.table, groupMemberRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.GroupId, data.UserId, data.Role, data.Nickname, data.MutedUntil, data.JoinedAt)
 	}, groupMemberGroupIdUserIdKey, groupMemberIdKey)
 	return ret, err
 }
@@ -135,7 +134,7 @@ func (m *defaultGroupMemberModel) Update(ctx context.Context, newData *GroupMemb
 	groupMemberIdKey := fmt.Sprintf("%s%v", cacheGroupMemberIdPrefix, data.Id)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, groupMemberRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.GroupId, newData.UserId, newData.Role, newData.Nickname, newData.MutedUntil, newData.JoinedAt, newData.InfoVersion, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.GroupId, newData.UserId, newData.Role, newData.Nickname, newData.MutedUntil, newData.JoinedAt, newData.Id)
 	}, groupMemberGroupIdUserIdKey, groupMemberIdKey)
 	return err
 }

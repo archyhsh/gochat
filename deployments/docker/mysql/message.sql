@@ -1,6 +1,8 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+USE `gochat_message`;
+
 CREATE TABLE IF NOT EXISTS `conversation` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `conversation_id` VARCHAR(64) NOT NULL,
@@ -24,6 +26,8 @@ CREATE TABLE IF NOT EXISTS `user_conversation` (
   `user_id` BIGINT NOT NULL,
   `conversation_id` VARCHAR(64) NOT NULL,
   `peer_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'Receiver or Group ID',
+  `peer_name` VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'Redundant peer name for search',
+  `peer_avatar` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Redundant peer avatar',
   `unread_count` INT DEFAULT 0,
   `last_msg_id` VARCHAR(64) NOT NULL DEFAULT '',
   `last_msg_time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -53,7 +57,7 @@ CREATE TABLE IF NOT EXISTS `message_template` (
   `group_id` BIGINT DEFAULT 0 COMMENT 'only for group chat',
   `sequence_id` BIGINT NOT NULL DEFAULT 0 COMMENT 'message sequence in conversation',
   `msg_type` TINYINT NOT NULL COMMENT 'type: 1text 2image 3file 4audio 5video 6system',
-  `content` TEXT NOT NULL DEFAULT '' COMMENT 'JSON format content',
+  `content` TEXT NOT NULL COMMENT 'JSON format content',
   `status` TINYINT DEFAULT 0 COMMENT 'status: 0normal 1withdrawn',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -61,7 +65,7 @@ CREATE TABLE IF NOT EXISTS `message_template` (
   KEY `idx_conv_created` (`conversation_id`, `created_at` DESC),
   KEY `idx_sender_id` (`sender_id`),
   KEY `idx_created_at` (`created_at`),
-  KEY `idx_conv_seq` (`group_id`, `sequence_id`),
+  KEY `idx_conv_seq` (`conversation_id`, `sequence_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `message_read` (

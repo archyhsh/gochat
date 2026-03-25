@@ -50,6 +50,9 @@ type (
 	RestoreConversationRequest {
 		ConversationId string `json:"conversation_id"`
 	}
+	DeleteConversationRequest {
+		ConversationId string `json:"conversation_id"`
+	}
 )
 
 @server (
@@ -74,4 +77,7 @@ service gateway {
 
 	@handler RestoreConversation
 	post /conversations/restore (RestoreConversationRequest) returns (CommonResponse)
+
+	@handler DeleteConversation
+	post /conversations/delete (DeleteConversationRequest) returns (CommonResponse)
 }

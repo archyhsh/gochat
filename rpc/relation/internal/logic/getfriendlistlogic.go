@@ -7,7 +7,6 @@ import (
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/relation/internal/svc"
 	"github.com/archyhsh/gochat/rpc/relation/model"
-	"github.com/archyhsh/gochat/rpc/user/userservice"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -56,7 +55,7 @@ func (l *GetFriendListLogic) GetFriendList(in *pb.GetFriendListRequest) (*pb.Get
 		friendIds = append(friendIds, f.FriendId)
 		remarkMap[f.FriendId] = f.Remark
 	}
-	userResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &userservice.GetUsersByIdsRequest{
+	userResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &pb.GetUsersByIdsRequest{
 		UserIds: friendIds,
 	})
 	if err != nil {

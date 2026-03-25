@@ -13,11 +13,11 @@ import (
 	"sync"
 
 	"github.com/archyhsh/gochat/pkg/snowflake"
-	"github.com/archyhsh/gochat/rpc/group/groupservice"
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
-	"github.com/archyhsh/gochat/rpc/user/userservice"
 	"github.com/zeromicro/go-zero/core/logx"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/IBM/sarama"
@@ -83,8 +83,9 @@ func (h *MessageConsumerHandler) handleChatMessage(ctx context.Context, data []b
 	}
 
 	l := NewSaveMessageLogic(ctx, h.svcCtx)
-	_, err := l.SaveMessage(&pb.SaveMessageRequest{Message: &event})
-	if err == nil {
+	resp, err := l.SaveMessage(&pb.SaveMessageRequest{Message: &event})
+	if err == nil && resp != nil {
+		event.Sequence = resp.Sequence
 		h.pushToGateways(ctx, &event)
 	}
 	return err
@@ -114,11 +115,32 @@ func (h *MessageConsumerHandler) handleSystemEvent(ctx context.Context, data []b
 
 func (h *MessageConsumerHandler) handleUserEvent(ctx context.Context, event map[string]interface{}) error {
 	userId := h.toInt64(event["user_id"])
-	if userId > 0 {
-		h.userCache.Delete(userId)
-		key := fmt.Sprintf("cache:user:version:%d", userId)
-		_, _ = h.svcCtx.Redis.Del(key)
+	version := h.toInt64(event["info_version"])
+	if userId <= 0 {
+		h.Errorf("[handleUserEvent] invalid userId: %d", userId)
+		return nil
 	}
+
+	// 1. Invalidate Caches
+	h.userCache.Delete(userId)
+	key := fmt.Sprintf("cache:user:version:%d", userId)
+	_, _ = h.svcCtx.Redis.Del(key)
+
+	// 2. Precise Notification: Find people having conversation with this user
+	uids, err := h.svcCtx.UserConversationModel.GetUsersByPeerId(ctx, userId)
+	if err == nil && len(uids) > 0 {
+		sig := &pb.ChatMessageEvent{
+			MsgId:             strconv.FormatInt(time.Now().UnixNano(), 10),
+			SenderId:          userId,
+			MsgType:           18, // METADATA_INVALIDATION
+			Content:           "profile_updated",
+			Timestamp:         time.Now().UnixMilli(),
+			TargetIds:         uids,
+			SenderInfoVersion: version,
+		}
+		h.pushToGateways(ctx, sig)
+	}
+
 	return nil
 }
 
@@ -126,6 +148,11 @@ func (h *MessageConsumerHandler) handleUserEvent(ctx context.Context, event map[
 
 func (h *MessageConsumerHandler) handleFriendEvent(ctx context.Context, event map[string]interface{}) error {
 	action, _ := event["action"].(string)
+	if action == "" {
+		h.Errorf("[handleFriendEvent] missing action in event: %v", event)
+		return nil
+	}
+
 	impact := &eventImpact{}
 
 	switch action {
@@ -195,6 +222,11 @@ func (h *MessageConsumerHandler) handleGroupEvent(ctx context.Context, event map
 	groupId := h.toInt64(event["group_id"])
 	actorId := h.toInt64(event["user_id"])
 
+	if action == "" || groupId <= 0 {
+		h.Errorf("[handleGroupEvent] invalid event data: action=%s, groupId=%d", action, groupId)
+		return nil
+	}
+
 	// Invalidate cache
 	if groupId > 0 {
 		h.groupCache.Delete(groupId)
@@ -253,7 +285,7 @@ func (h *MessageConsumerHandler) handleGroupInvite(ctx context.Context, event ma
 
 	var inviteeNames []string
 	if len(inviteeIds) > 0 {
-		userResp, _ := h.svcCtx.UserRpc.GetUsersByIds(ctx, &userservice.GetUsersByIdsRequest{UserIds: inviteeIds})
+		userResp, _ := h.svcCtx.UserRpc.GetUsersByIds(ctx, &pb.GetUsersByIdsRequest{UserIds: inviteeIds})
 		if userResp != nil {
 			for _, u := range userResp.Users {
 				inviteeNames = append(inviteeNames, u.Nickname)
@@ -284,11 +316,14 @@ func (h *MessageConsumerHandler) processEventMessage(ctx context.Context, impact
 
 	// 1. Persistence (Save to history)
 	l := NewSaveMessageLogic(ctx, h.svcCtx)
-	_, _ = l.SaveMessage(&pb.SaveMessageRequest{Message: evt})
+	resp, _ := l.SaveMessage(&pb.SaveMessageRequest{Message: evt})
+	if resp != nil {
+		evt.Sequence = resp.Sequence
+	}
 
 	// 2. Resolve broadcast members if needed
 	if impact.Broadcast && impact.GroupId > 0 {
-		resp, err := h.svcCtx.GroupRpc.GetGroupMembers(ctx, &groupservice.GetGroupMembersRequest{GroupId: impact.GroupId})
+		resp, err := h.svcCtx.GroupRpc.GetGroupMembers(ctx, &pb.GetGroupMembersRequest{GroupId: impact.GroupId})
 		if err == nil {
 			for _, m := range resp.Members {
 				evt.TargetIds = append(evt.TargetIds, m.UserId)
@@ -311,6 +346,7 @@ func (h *MessageConsumerHandler) processEventMessage(ctx context.Context, impact
 			Timestamp:      time.Now().UnixMilli(),
 			TargetIds:      evt.TargetIds,
 			GroupId:        impact.GroupId,
+			Sequence:       evt.Sequence,
 		}
 		h.pushToGateways(ctx, sig)
 	}
@@ -325,8 +361,7 @@ func (h *MessageConsumerHandler) pushToGateways(ctx context.Context, event *pb.C
 	if len(event.TargetIds) > 0 {
 		targetUsers = event.TargetIds
 	} else if event.GroupId > 0 {
-		// Fallback to all members if no targets and GroupId is present (legacy or specific broadcast)
-		resp, err := h.svcCtx.GroupRpc.GetGroupMembers(ctx, &groupservice.GetGroupMembersRequest{GroupId: event.GroupId})
+		resp, err := h.svcCtx.GroupRpc.GetGroupMembers(ctx, &pb.GetGroupMembersRequest{GroupId: event.GroupId})
 		if err == nil {
 			for _, m := range resp.Members {
 				targetUsers = append(targetUsers, m.UserId)
@@ -362,12 +397,32 @@ func (h *MessageConsumerHandler) pushToGateways(ctx context.Context, event *pb.C
 	}
 
 	for addr, uids := range gwMap {
-		go h.sendPushRequest(addr, uids, event)
+		// Calculate unread per user if private, or push common event
+		go h.sendBatchPush(ctx, addr, uids, event)
 	}
 }
 
-func (h *MessageConsumerHandler) sendPushRequest(gwAddr string, userIds []int64, event *pb.ChatMessageEvent) {
+func (h *MessageConsumerHandler) sendBatchPush(ctx context.Context, addr string, uids []int64, event *pb.ChatMessageEvent) {
+	// For performance, we send the same event to the gateway, but gateway needs to know target UIDs.
+	// In the future, we could customize the payload per UID if unread counts differ.
+	h.sendPushRequest(ctx, addr, uids, event)
+}
+
+func (h *MessageConsumerHandler) sendPushRequest(ctx context.Context, gwAddr string, userIds []int64, event *pb.ChatMessageEvent) {
 	url := fmt.Sprintf("http://%s/internal/push", gwAddr)
+
+	// In cluster mode, we send a rich payload to enable "Pull-free" UI updates.
+	// For private messages, we try to fetch the specific unread count from Redis for the receiver.
+	unreadMap := make(map[int64]int64)
+	if event.GroupId == 0 && event.ReceiverId > 0 {
+		key := fmt.Sprintf("unread:cnt:%d:%s", event.ReceiverId, event.ConversationId)
+		val, err := h.svcCtx.Redis.GetCtx(ctx, key)
+		if err == nil && val != "" {
+			u, _ := strconv.ParseInt(val, 10, 64)
+			unreadMap[event.ReceiverId] = u
+		}
+	}
+
 	payload := map[string]interface{}{
 		"user_ids":            userIds,
 		"conversation_id":     event.ConversationId,
@@ -379,13 +434,24 @@ func (h *MessageConsumerHandler) sendPushRequest(gwAddr string, userIds []int64,
 		"sender_info_version": event.SenderInfoVersion,
 		"group_meta_version":  event.GroupMetaVersion,
 		"relation_version":    event.RelationVersion,
+		"sequence":            event.Sequence,
+		"unread_map":          unreadMap, // uid -> unread_count
 	}
 
 	data, _ := json.Marshal(payload)
+
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
-		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(data))
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(data))
+		if err != nil {
+			h.Errorf("Failed to create push request: %v", err)
+			return
+		}
 		req.Header.Set("Content-Type", "application/json")
+
+		// Inject Trace Context into HTTP headers
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+
 		resp, err := h.svcCtx.HttpClient.Do(req)
 		if err == nil {
 			resp.Body.Close()
@@ -410,10 +476,17 @@ func (h *MessageConsumerHandler) toInt64(val interface{}) int64 {
 	if f, ok := val.(float64); ok {
 		return int64(f)
 	}
+	if i, ok := val.(int64); ok {
+		return i
+	}
+	if i, ok := val.(int); ok {
+		return int64(i)
+	}
 	if s, ok := val.(string); ok {
 		id, _ := strconv.ParseInt(s, 10, 64)
 		return id
 	}
+	h.Debugf("[toInt64] unexpected type for value: %T (%v)", val, val)
 	return 0
 }
 
@@ -438,7 +511,7 @@ func (h *MessageConsumerHandler) getUserVersion(ctx context.Context, userId int6
 		h.userCache.Store(userId, v)
 		return v
 	}
-	userResp, err := h.svcCtx.UserRpc.GetUser(ctx, &userservice.GetUserRequest{UserId: userId})
+	userResp, err := h.svcCtx.UserRpc.GetUser(ctx, &pb.GetUserRequest{UserId: userId})
 	if err == nil && userResp.User != nil {
 		version := userResp.User.InfoVersion
 		_ = h.svcCtx.Redis.Setex(key, strconv.FormatInt(version, 10), 3600*24)
@@ -462,7 +535,7 @@ func (h *MessageConsumerHandler) getGroupVersion(ctx context.Context, groupId in
 		h.groupCache.Store(groupId, v)
 		return v
 	}
-	groupResp, err := h.svcCtx.GroupRpc.GetGroupInfo(ctx, &groupservice.GetGroupInfoRequest{GroupId: groupId})
+	groupResp, err := h.svcCtx.GroupRpc.GetGroupInfo(ctx, &pb.GetGroupInfoRequest{GroupId: groupId})
 	if err == nil && groupResp.Group != nil {
 		version := groupResp.Group.MetaVersion
 		_ = h.svcCtx.Redis.Setex(key, strconv.FormatInt(version, 10), 3600*24)

@@ -49,6 +49,10 @@ type CreateGroupRequest struct {
 	Description string `json:"description,optional"`
 }
 
+type DeleteConversationRequest struct {
+	ConversationId string `json:"conversation_id"`
+}
+
 type DeleteFriendRequest struct {
 	Id int64 `path:"id"`
 }

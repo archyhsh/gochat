@@ -93,8 +93,8 @@ func (l *HandleGroupRequestLogic) HandleGroupRequest(in *pb.HandleGroupRequestRe
 			now := time.Now()
 			version := now.UnixNano()
 			finalMetaVersion = version
-			insertMemberSql := "insert into `group_member` (group_id, user_id, role, joined_at, info_version) values (?, ?, ?, ?, ?)"
-			_, err = session.ExecCtx(ctx, insertMemberSql, req.GroupId, req.UserId, 1, now, version)
+			insertMemberSql := "insert into `group_member` (group_id, user_id, role, joined_at) values (?, ?, ?, ?)"
+			_, err = session.ExecCtx(ctx, insertMemberSql, req.GroupId, req.UserId, 1, now)
 			if err != nil {
 				return err
 			}

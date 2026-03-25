@@ -5,6 +5,7 @@ package svc
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/archyhsh/gochat/api/internal/config"
@@ -51,7 +52,13 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	failureStore := messaging.NewRedisFailureStore(rdb, "")
 	producer := messaging.NewReliableProducer(rawProducer, failureStore, c.Kafka.Topic)
 
-	serverAddr := fmt.Sprintf("%s:%d", c.Host, c.Port)
+	// In cluster mode, we must register a reachable address (IP or Hostname)
+	// Priority: 1. HOSTNAME env (Docker/K8s), 2. Config Host
+	addr := os.Getenv("HOSTNAME")
+	if addr == "" {
+		addr = c.Host
+	}
+	serverAddr := fmt.Sprintf("%s:%d", addr, c.Port)
 
 	rt := router.NewRouter(rdb, serverAddr)
 

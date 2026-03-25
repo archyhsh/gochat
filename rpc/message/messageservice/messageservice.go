@@ -19,6 +19,8 @@ type (
 	ClearUnreadRequest          = pb.ClearUnreadRequest
 	ClearUnreadResponse         = pb.ClearUnreadResponse
 	ConversationInfo            = pb.ConversationInfo
+	DeleteConversationRequest   = pb.DeleteConversationRequest
+	DeleteConversationResponse  = pb.DeleteConversationResponse
 	GetConversationsRequest     = pb.GetConversationsRequest
 	GetConversationsResponse    = pb.GetConversationsResponse
 	GetMessageByIDRequest       = pb.GetMessageByIDRequest
@@ -37,6 +39,7 @@ type (
 		GetMessageByID(ctx context.Context, in *GetMessageByIDRequest, opts ...grpc.CallOption) (*GetMessageByIDResponse, error)
 		SaveMessage(ctx context.Context, in *SaveMessageRequest, opts ...grpc.CallOption) (*SaveMessageResponse, error)
 		RestoreConversation(ctx context.Context, in *RestoreConversationRequest, opts ...grpc.CallOption) (*RestoreConversationResponse, error)
+		DeleteConversation(ctx context.Context, in *DeleteConversationRequest, opts ...grpc.CallOption) (*DeleteConversationResponse, error)
 	}
 
 	defaultMessageService struct {
@@ -78,4 +81,9 @@ func (m *defaultMessageService) SaveMessage(ctx context.Context, in *SaveMessage
 func (m *defaultMessageService) RestoreConversation(ctx context.Context, in *RestoreConversationRequest, opts ...grpc.CallOption) (*RestoreConversationResponse, error) {
 	client := pb.NewMessageServiceClient(m.cli.Conn())
 	return client.RestoreConversation(ctx, in, opts...)
+}
+
+func (m *defaultMessageService) DeleteConversation(ctx context.Context, in *DeleteConversationRequest, opts ...grpc.CallOption) (*DeleteConversationResponse, error) {
+	client := pb.NewMessageServiceClient(m.cli.Conn())
+	return client.DeleteConversation(ctx, in, opts...)
 }

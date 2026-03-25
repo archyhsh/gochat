@@ -51,10 +51,10 @@ type (
 		MaxMembers   int64     `db:"max_members"`
 		MemberCount  int64     `db:"member_count"`
 		Announcement string    `db:"announcement"`
-		Status       int64     `db:"status"` // status: 0closed 1normal
+		Status       int64     `db:"status"`       // status: 0closed 1normal
+		MetaVersion  int64     `db:"meta_version"` // group name and announcement version
 		CreatedAt    time.Time `db:"created_at"`
 		UpdatedAt    time.Time `db:"updated_at"`
-		MetaVersion  int64     `db:"meta_version"`
 	}
 )
 

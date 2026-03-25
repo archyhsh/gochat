@@ -2,15 +2,14 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
-	"github.com/archyhsh/gochat/rpc/group/groupservice"
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/message/model"
 	"github.com/archyhsh/gochat/rpc/pb"
-	"github.com/archyhsh/gochat/rpc/relation/relationservice"
-	"github.com/archyhsh/gochat/rpc/user/userservice"
+	"github.com/zeromicro/go-zero/core/mr"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -50,77 +49,137 @@ func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest)
 	if in.Keyword == "" {
 		userConversations, err = l.svcCtx.UserConversationModel.GetUserConversationsByUserId(l.ctx, userId)
 	} else {
-		userConversations, err = l.svcCtx.UserConversationModel.SearchUserConversationsByUserId(l.ctx, userId)
+		userConversations, err = l.svcCtx.UserConversationModel.SearchUserConversationsByUserId(l.ctx, userId, in.Keyword)
 	}
 	if err != nil {
-		l.Errorf("Failed to get conversations for user %d: %v", userId, err)
 		return nil, status.Error(codes.Internal, "Internal database error")
 	}
 
-	// Batch Fetch Info if Keyword is present
-	peerNames := make(map[string]string)
-	if in.Keyword != "" {
-		var uids []int64
-		var gids []int64
-		for _, uc := range userConversations {
-			if strings.HasPrefix(uc.ConversationId, "conv_") {
-				uids = append(uids, uc.PeerId)
-			} else if strings.HasPrefix(uc.ConversationId, "group_") {
-				gids = append(gids, uc.PeerId)
-			}
-		}
-
-		if len(uids) > 0 {
-			md := metadata.Pairs("user_id", strconv.FormatInt(userId, 10))
-			outCtx := metadata.NewOutgoingContext(l.ctx, md)
-			relResp, _ := l.svcCtx.RelationRpc.GetFriendList(outCtx, &relationservice.GetFriendListRequest{})
-			if relResp != nil {
-				for _, f := range relResp.Friends {
-					name := f.Nickname
-					if f.Remark != "" {
-						name = f.Remark
-					}
-					peerNames["u"+strconv.FormatInt(f.UserId, 10)] = name
-				}
-			}
-			userResp, _ := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &userservice.GetUsersByIdsRequest{UserIds: uids})
-			if userResp != nil {
-				for _, u := range userResp.Users {
-					key := "u" + strconv.FormatInt(u.Id, 10)
-					if _, exists := peerNames[key]; !exists {
-						peerNames[key] = u.Nickname
-					}
-				}
-			}
-		}
-
-		for _, gid := range gids {
-			gResp, _ := l.svcCtx.GroupRpc.GetGroupInfo(l.ctx, &groupservice.GetGroupInfoRequest{GroupId: gid})
-			if gResp != nil && gResp.Group != nil {
-				peerNames["g"+strconv.FormatInt(gid, 10)] = gResp.Group.Name
+	// 1. Identify missing metadata (Lazy Loading)
+	missingUserIds := make([]int64, 0)
+	missingGroupIds := make([]int64, 0)
+	for _, uc := range userConversations {
+		if uc.PeerName == "" {
+			if strings.HasPrefix(uc.ConversationId, "group_") {
+				missingGroupIds = append(missingGroupIds, uc.PeerId)
+			} else {
+				missingUserIds = append(missingUserIds, uc.PeerId)
 			}
 		}
 	}
 
-	var conversations []*pb.ConversationInfo
-	keyword := strings.ToLower(in.Keyword)
+	// 2. Parallel data fetching (Redis & RPC Fallback)
+	type metaInfo struct {
+		Name   string
+		Avatar string
+	}
+	userMetas := make(map[int64]metaInfo)
+	groupMetas := make(map[int64]metaInfo)
+	latestSeqs := make(map[string]int64)
+	unreadCnts := make(map[string]int64)
 
+	_ = mr.Finish(func() error {
+		// RPC Fallback: Only fetch missing User Infos
+		if len(missingUserIds) > 0 {
+			uResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &pb.GetUsersByIdsRequest{UserIds: missingUserIds})
+			if err == nil && uResp != nil {
+				for _, u := range uResp.Users {
+					userMetas[u.Id] = metaInfo{Name: u.Nickname, Avatar: u.Avatar}
+				}
+			}
+		}
+		return nil
+	}, func() error {
+		// RPC Fallback: Only fetch missing Group Infos
+		if len(missingGroupIds) > 0 {
+			gResp, err := l.svcCtx.GroupRpc.GetGroupsByIds(l.ctx, &pb.GetGroupsByIdsRequest{GroupIds: missingGroupIds})
+			if err == nil && gResp != nil {
+				for _, g := range gResp.Groups {
+					groupMetas[g.Id] = metaInfo{Name: g.Name, Avatar: g.Avatar}
+				}
+			}
+		}
+		return nil
+	}, func() error {
+		// Batch fetch LatestSequence from Redis (Shared for all)
+		keys := make([]string, len(userConversations))
+		for i, uc := range userConversations {
+			keys[i] = fmt.Sprintf("conv:latest_seq:%s", uc.ConversationId)
+		}
+		vals, err := l.svcCtx.Redis.Mget(keys...)
+		if err == nil {
+			for i, v := range vals {
+				if v != "" {
+					seq, _ := strconv.ParseInt(v, 10, 64)
+					latestSeqs[userConversations[i].ConversationId] = seq
+				}
+			}
+		}
+		return nil
+	}, func() error {
+		// Batch fetch Unread Counts from Redis (For private chats)
+		privateKeys := make([]string, 0)
+		mapping := make([]string, 0)
+		for _, uc := range userConversations {
+			if !strings.HasPrefix(uc.ConversationId, "group_") {
+				key := fmt.Sprintf("unread:cnt:%d:%s", userId, uc.ConversationId)
+				privateKeys = append(privateKeys, key)
+				mapping = append(mapping, uc.ConversationId)
+			}
+		}
+		if len(privateKeys) > 0 {
+			vals, err := l.svcCtx.Redis.Mget(privateKeys...)
+			if err == nil {
+				for i, v := range vals {
+					if v != "" {
+						cnt, _ := strconv.ParseInt(v, 10, 64)
+						unreadCnts[mapping[i]] = cnt
+					}
+				}
+			}
+		}
+		return nil
+	})
+
+	// 3. Final Assembly using DB Snapshot + Fallback Metas
+	var conversations []*pb.ConversationInfo
 	for _, uc := range userConversations {
-		if in.Keyword != "" {
-			name := ""
-			if strings.HasPrefix(uc.ConversationId, "conv_") {
-				name = peerNames["u"+strconv.FormatInt(uc.PeerId, 10)]
-			} else {
-				name = peerNames["g"+strconv.FormatInt(uc.PeerId, 10)]
-			}
-			if !strings.Contains(strings.ToLower(name), keyword) {
-				continue
-			}
+		isGroup := strings.HasPrefix(uc.ConversationId, "group_")
+
+		// Latest Sequence & Unread Logic (Redis First)
+		latestSeq := uc.LatestSeq
+		if s, ok := latestSeqs[uc.ConversationId]; ok {
+			latestSeq = s
 		}
 
 		unreadCount := int32(uc.UnreadCount)
-		if uc.LatestSeq > uc.ReadSequence {
-			unreadCount = int32(uc.LatestSeq - uc.ReadSequence)
+		if isGroup {
+			if latestSeq > uc.ReadSequence {
+				unreadCount = int32(latestSeq - uc.ReadSequence)
+			}
+		} else {
+			if c, ok := unreadCnts[uc.ConversationId]; ok {
+				unreadCount = int32(c)
+			}
+		}
+
+		// Use Redundant Data from DB Snapshot (PeerName/Avatar)
+		// Only fallback to RPC metas if DB snapshot is empty
+		nickname := uc.PeerName
+		avatar := uc.PeerAvatar
+
+		if nickname == "" {
+			if isGroup {
+				if m, ok := groupMetas[uc.PeerId]; ok {
+					nickname = m.Name
+					avatar = m.Avatar
+				}
+			} else {
+				if m, ok := userMetas[uc.PeerId]; ok {
+					nickname = m.Name
+					avatar = m.Avatar
+				}
+			}
 		}
 
 		conversations = append(conversations, &pb.ConversationInfo{
@@ -135,6 +194,8 @@ func (l *GetConversationsLogic) GetConversations(in *pb.GetConversationsRequest)
 			IsTop:           int32(uc.IsTop),
 			IsMuted:         int32(uc.IsMuted),
 			Version:         uc.Version,
+			PeerNickname:    nickname,
+			PeerAvatar:      avatar,
 		})
 	}
 

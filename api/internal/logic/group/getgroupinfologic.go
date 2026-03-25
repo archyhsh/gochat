@@ -5,11 +5,13 @@ package group
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/archyhsh/gochat/api/internal/svc"
 	"github.com/archyhsh/gochat/api/internal/types"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,7 +32,11 @@ func NewGetGroupInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetG
 }
 
 func (l *GetGroupInfoLogic) GetGroupInfo(req *types.GetGroupInfoRequest) (resp *types.GroupInfo, err error) {
-	rpcResp, err := l.svcCtx.GroupRpc.GetGroupInfo(l.ctx, &pb.GetGroupInfoRequest{
+	userId, _ := l.ctx.Value("user_id").(int64)
+	md := metadata.Pairs("user_id", strconv.FormatInt(userId, 10))
+	ctx := metadata.NewOutgoingContext(l.ctx, md)
+
+	rpcResp, err := l.svcCtx.GroupRpc.GetGroupInfo(ctx, &pb.GetGroupInfoRequest{
 		GroupId: req.GroupId,
 	})
 	if err != nil {

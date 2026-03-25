@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -70,13 +71,47 @@ func (l *SaveMessageLogic) SaveMessage(in *pb.SaveMessageRequest) (*pb.SaveMessa
 		if err != nil {
 			return status.Error(codes.Internal, "fail to insert msg: "+err.Error())
 		}
+
+		// 获取冗余资料快照 (peer_name, peer_avatar)
+		peerName := ""
+		peerAvatar := ""
+		senderName := ""
+		senderAvatar := ""
+
+		if in.Message.GroupId > 0 {
+			gResp, err := l.svcCtx.GroupRpc.GetGroupInfo(l.ctx, &pb.GetGroupInfoRequest{GroupId: in.Message.GroupId})
+			if err == nil && gResp.Group != nil {
+				peerName = gResp.Group.Name
+				peerAvatar = gResp.Group.Avatar
+			}
+		} else {
+			// 私聊：预取发送者资料
+			sResp, err := l.svcCtx.UserRpc.GetUsersByIds(l.ctx, &pb.GetUsersByIdsRequest{UserIds: []int64{in.Message.SenderId, in.Message.ReceiverId}})
+			if err == nil && sResp != nil {
+				for _, u := range sResp.Users {
+					if u.Id == in.Message.SenderId {
+						senderName = u.Nickname
+						senderAvatar = u.Avatar
+					}
+					if u.Id == in.Message.ReceiverId {
+						peerName = u.Nickname
+						peerAvatar = u.Avatar
+					}
+				}
+			}
+		}
+
 		updatedUsers := make(map[int64]bool)
 		if in.Message.SenderId > 0 {
 			peerId := in.Message.ReceiverId
+			pName := peerName
+			pAvatar := peerAvatar
 			if in.Message.GroupId > 0 {
 				peerId = in.Message.GroupId
+				pName = peerName
+				pAvatar = peerAvatar
 			}
-			err = l.svcCtx.UserConversationModel.UpdateNewPrivateMsg(ctx, s, in.Message.SenderId, peerId, in.Message.ConversationId, msgModel, false)
+			err = l.svcCtx.UserConversationModel.UpdateNewPrivateMsg(ctx, s, in.Message.SenderId, peerId, pName, pAvatar, in.Message.ConversationId, msgModel, false)
 			if err != nil {
 				return status.Error(codes.Internal, "fail to init sender bookmark: "+err.Error())
 			}
@@ -106,26 +141,33 @@ func (l *SaveMessageLogic) SaveMessage(in *pb.SaveMessageRequest) (*pb.SaveMessa
 
 			incUnread := tid != in.Message.SenderId
 			peerId := in.Message.SenderId
+			pName := senderName
+			pAvatar := senderAvatar
+
 			if in.Message.GroupId > 0 {
 				peerId = in.Message.GroupId
+				pName = peerName
+				pAvatar = peerAvatar
 			} else if peerId == 0 {
-				// For system messages in private chat (conv_A_B),
-				// if current user is A, peer is B, and vice-versa.
+				// For system messages in private chat (conv_A_B)
 				parts := strings.Split(in.Message.ConversationId, "_")
 				if len(parts) == 3 && parts[0] == "conv" {
 					id1, _ := strconv.ParseInt(parts[1], 10, 64)
 					id2, _ := strconv.ParseInt(parts[2], 10, 64)
 					if tid == id1 {
 						peerId = id2
+						pName = peerName
 					} else {
 						peerId = id1
+						pName = senderName // This assumes tid is the 'other' person
 					}
 				} else {
 					peerId = in.Message.ReceiverId
+					pName = peerName
 				}
 			}
 
-			err = l.svcCtx.UserConversationModel.UpdateNewPrivateMsg(ctx, s, tid, peerId, in.Message.ConversationId, msgModel, incUnread)
+			err = l.svcCtx.UserConversationModel.UpdateNewPrivateMsg(ctx, s, tid, peerId, pName, pAvatar, in.Message.ConversationId, msgModel, incUnread)
 			if err != nil {
 				return status.Error(codes.Internal, "fail to init target bookmark: "+err.Error())
 			}
@@ -139,7 +181,20 @@ func (l *SaveMessageLogic) SaveMessage(in *pb.SaveMessageRequest) (*pb.SaveMessa
 		return nil, status.Error(codes.Internal, "Failed to persist message: "+err.Error())
 	}
 
+	// Post-Commit logic: Update Redis for fast access (Cache Pre-warming)
+	// 1. Update Latest Sequence for the conversation
+	seqKey := fmt.Sprintf("conv:latest_seq:%s", in.Message.ConversationId)
+	_ = l.svcCtx.Redis.Setex(seqKey, strconv.FormatInt(newSeq, 10), 3600*24*7)
+
+	// 2. For private chats, increment unread counter in Redis
+	if in.Message.GroupId == 0 && in.Message.ReceiverId > 0 {
+		unreadKey := fmt.Sprintf("unread:cnt:%d:%s", in.Message.ReceiverId, in.Message.ConversationId)
+		_, _ = l.svcCtx.Redis.Incr(unreadKey)
+		_ = l.svcCtx.Redis.Expire(unreadKey, 3600*24*7)
+	}
+
 	return &pb.SaveMessageResponse{
-		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
+		Base:     &pb.BaseResponse{Code: 200, Message: "Success"},
+		Sequence: newSeq,
 	}, nil
 }

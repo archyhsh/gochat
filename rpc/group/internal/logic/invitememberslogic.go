@@ -67,11 +67,10 @@ func (l *InviteMembersLogic) InviteMembers(in *pb.InviteMembersRequest) (*pb.Inv
 
 			// Insert into Group Member
 			_, err = l.svcCtx.GroupMemberModel.Insert(ctx, &model.GroupMember{
-				GroupId:     in.GroupId,
-				UserId:      memberId,
-				Role:        1, // Regular member
-				JoinedAt:    now,
-				InfoVersion: version,
+				GroupId:  in.GroupId,
+				UserId:   memberId,
+				Role:     1, // Regular member
+				JoinedAt: now,
 			})
 			if err != nil {
 				return err

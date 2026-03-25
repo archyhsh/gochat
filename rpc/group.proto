@@ -23,6 +23,16 @@ service GroupService {
     rpc UpdateGroupNickname(UpdateGroupNicknameRequest) returns (UpdateGroupNicknameResponse);
     rpc GetGroupRequests(GetGroupRequestsRequest) returns (GetGroupRequestsResponse);
     rpc HandleGroupRequest(HandleGroupRequestRequest) returns (HandleGroupRequestResponse);
+    rpc GetGroupsByIds(GetGroupsByIdsRequest) returns (GetGroupsByIdsResponse);
+}
+
+message GetGroupsByIdsRequest {
+    repeated int64 group_ids = 1;
+}
+
+message GetGroupsByIdsResponse {
+    BaseResponse base = 1;
+    repeated Group groups = 2;
 }
 
 message GetGroupRequestsRequest {

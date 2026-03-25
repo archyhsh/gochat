@@ -13,11 +13,11 @@ service MessageService {
     rpc GetMessageByID(GetMessageByIDRequest) returns (GetMessageByIDResponse);
     rpc SaveMessage(SaveMessageRequest) returns (SaveMessageResponse);
     rpc RestoreConversation(RestoreConversationRequest) returns (RestoreConversationResponse);
+    rpc DeleteConversation(DeleteConversationRequest) returns (DeleteConversationResponse);
 }
 
 message RestoreConversationRequest {
-    int64 user_id = 1;
-    string conversation_id = 2;
+    string conversation_id = 1;
 }
 
 message RestoreConversationResponse {
@@ -52,6 +52,8 @@ message ConversationInfo {
     int32 is_top = 9;
     int32 is_muted = 10;
     int64 version = 11;
+    string peer_nickname = 12;
+    string peer_avatar = 13;
 }
 
 message GetMessagesRequest {
@@ -106,11 +108,21 @@ message ChatMessageEvent {
     int64 sender_info_version = 11;
     int64 group_meta_version = 12;
     int64 relation_version = 13;
+    int64 sequence = 14;
 }
 
 message SaveMessageRequest {
     ChatMessageEvent message = 1;
 }
 message SaveMessageResponse {
+    BaseResponse base = 1;
+    int64 sequence = 2;
+}
+
+message DeleteConversationRequest {
+    string conversation_id = 1;
+}
+
+message DeleteConversationResponse {
     BaseResponse base = 1;
 }

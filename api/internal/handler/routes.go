@@ -131,6 +131,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
+					Path:    "/conversations/delete",
+					Handler: message.DeleteConversationHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
 					Path:    "/conversations/restore",
 					Handler: message.RestoreConversationHandler(serverCtx),
 				},

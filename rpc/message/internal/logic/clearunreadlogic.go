@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -29,6 +30,8 @@ func NewClearUnreadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Clear
 	}
 }
 
+// 1、用户点击进入特定会话界面 触发清除
+// 2、用户通过搜索恢复一个被删除的对话 触发清除
 func (l *ClearUnreadLogic) ClearUnread(in *pb.ClearUnreadRequest) (*pb.ClearUnreadResponse, error) {
 	md, ok := metadata.FromIncomingContext(l.ctx)
 	if !ok {
@@ -55,6 +58,10 @@ func (l *ClearUnreadLogic) ClearUnread(in *pb.ClearUnreadRequest) (*pb.ClearUnre
 	err = l.svcCtx.UserConversationModel.UpdateReadSequence(l.ctx, userId, in.ConversationId, conv.LatestSeq)
 	if err == nil {
 		_ = l.svcCtx.UserConversationModel.UpdateVersion(l.ctx, userId, in.ConversationId, version)
+
+		// Clear Redis unread counter
+		unreadKey := fmt.Sprintf("unread:cnt:%d:%s", userId, in.ConversationId)
+		_, _ = l.svcCtx.Redis.Del(unreadKey)
 	}
 	if err != nil {
 		return nil, status.Error(codes.Internal, "Failed to clear unread: "+err.Error())
