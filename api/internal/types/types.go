@@ -37,6 +37,8 @@ type Conversation struct {
 	UnreadCount     int    `json:"unread_count"`
 	LastMessage     string `json:"last_message"`
 	LastMessageTime int64  `json:"last_message_time"`
+	Nickname        string `json:"nickname"`
+	Avatar          string `json:"avatar"`
 }
 
 type ConversationsResponse struct {
@@ -205,14 +207,18 @@ type MessagesResponse struct {
 }
 
 type PushRequest struct {
-	UserIds         []int64 `json:"user_ids"`
-	ConversationId  string  `json:"conversation_id"`
-	MsgId           string  `json:"msg_id"`
-	SenderId        int64   `json:"sender_id"`
-	Content         string  `json:"content"`
-	MsgType         int     `json:"msg_type"`
-	Timestamp       int64   `json:"timestamp"`
-	RelationVersion int64   `json:"relation_version,optional"`
+	UserIds           []int64         `json:"user_ids"`
+	ConversationId    string          `json:"conversation_id"`
+	MsgId             string          `json:"msg_id"`
+	SenderId          int64           `json:"sender_id"`
+	Content           string          `json:"content"`
+	MsgType           int             `json:"msg_type"`
+	Timestamp         int64           `json:"timestamp"`
+	SenderInfoVersion int64           `json:"sender_info_version,optional"`
+	GroupMetaVersion  int64           `json:"group_meta_version,optional"`
+	RelationVersion   int64           `json:"relation_version,optional"`
+	Sequence          int64           `json:"sequence,optional"`
+	UnreadMap         map[int64]int64 `json:"unread_map,optional"`
 }
 
 type PushResponse struct {

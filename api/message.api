@@ -18,6 +18,8 @@ type (
 		UnreadCount     int    `json:"unread_count"`
 		LastMessage     string `json:"last_message"`
 		LastMessageTime int64  `json:"last_message_time"`
+		Nickname        string `json:"nickname"`
+		Avatar          string `json:"avatar"`
 	}
 	GetConversationsRequest {
 		Keyword string `form:"keyword,optional"`

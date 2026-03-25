@@ -5,11 +5,13 @@ package message
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/archyhsh/gochat/api/internal/svc"
 	"github.com/archyhsh/gochat/api/internal/types"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,7 +32,11 @@ func NewGetMessageByIdLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ge
 }
 
 func (l *GetMessageByIdLogic) GetMessageById(req *types.GetMessageByIdRequest) (resp *types.Message, err error) {
-	rpcResp, err := l.svcCtx.MessageRpc.GetMessageByID(l.ctx, &pb.GetMessageByIDRequest{
+	userId, _ := l.ctx.Value("user_id").(int64)
+	md := metadata.Pairs("user_id", strconv.FormatInt(userId, 10))
+	ctx := metadata.NewOutgoingContext(l.ctx, md)
+
+	rpcResp, err := l.svcCtx.MessageRpc.GetMessageByID(ctx, &pb.GetMessageByIDRequest{
 		MsgId: req.MsgId,
 	})
 	if err != nil {

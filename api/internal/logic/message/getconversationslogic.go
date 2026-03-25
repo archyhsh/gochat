@@ -55,8 +55,6 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsRequ
 			UnreadCount:     int(c.UnreadCount),
 			LastMessage:     c.LastMessage,
 			LastMessageTime: c.LastMessageTime,
-			Nickname:        c.PeerNickname,
-			Avatar:          c.PeerAvatar,
 		})
 		existingConvIds[c.ConversationId] = true
 	}
@@ -74,8 +72,6 @@ func (l *GetConversationsLogic) GetConversations(req *types.GetConversationsRequ
 						UnreadCount:     0,
 						LastMessage:     "No messages yet",
 						LastMessageTime: time.Now().UnixMilli(),
-						Nickname:        g.Name,
-						Avatar:          g.Avatar,
 					})
 				}
 			}

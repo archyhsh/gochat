@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/relation/internal/svc"
 	"github.com/archyhsh/gochat/rpc/relation/model"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,6 +32,17 @@ func NewHandleApplyLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Handl
 }
 
 func (l *HandleApplyLogic) HandleApply(in *pb.HandleApplyRequest) (*pb.HandleApplyResponse, error) {
+	// Authentication: Extract user_id from metadata
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found")
+	}
+	userId, _ := strconv.ParseInt(userIdStrs[0], 10, 64)
+
 	apply, err := l.svcCtx.FriendApplyModel.FindOne(l.ctx, in.ApplyId)
 	if err != nil {
 		if err == model.ErrNotFound {
@@ -38,6 +51,12 @@ func (l *HandleApplyLogic) HandleApply(in *pb.HandleApplyRequest) (*pb.HandleApp
 			return nil, status.Error(codes.Internal, "failed to find apply message")
 		}
 	}
+
+	// Authorization: Verify if the current user is the actual recipient of this application
+	if apply.ToUserId != userId {
+		return nil, status.Error(codes.PermissionDenied, "access denied: you are not the recipient of this friend request")
+	}
+
 	if in.Accept {
 		apply.Status = 1
 		err = l.svcCtx.FriendshipModel.InsertFriendshipByUserIdFriendId(l.ctx, apply.FromUserId, apply.ToUserId)

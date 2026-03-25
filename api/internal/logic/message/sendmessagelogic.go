@@ -35,8 +35,18 @@ func (l *SendMessageLogic) SendMessage(req *types.SendMessageRequest) (resp *typ
 		return nil, fmt.Errorf("unauthorized")
 	}
 
-	// Block check for private messages
-	if req.ReceiverId > 0 && req.GroupId == 0 {
+	// Permission check
+	if req.GroupId > 0 {
+		// Group Chat: Check if the sender is a member
+		checkResp, err := l.svcCtx.GroupRpc.CheckGroupMember(l.ctx, &pb.CheckGroupMemberRequest{
+			GroupId: req.GroupId,
+			UserId:  userId,
+		})
+		if err != nil || !checkResp.IsMember {
+			return nil, fmt.Errorf("access denied: you are not a member of this group")
+		}
+	} else if req.ReceiverId > 0 {
+		// Private Chat: Check friendship and block status
 		checkResp, err := l.svcCtx.RelationRpc.CheckFriend(l.ctx, &pb.CheckFriendRequest{
 			UserId:   req.ReceiverId,
 			FriendId: userId,

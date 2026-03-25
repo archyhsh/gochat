@@ -53,9 +53,9 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 		return nil, status.Error(codes.Internal, "failed to query member status")
 	}
 	// only group owner and admins can update announcement
-	if member.Role < 1 {
+	if member.Role < 2 {
 		return &pb.UpdateAnnouncementResponse{
-			Base: &pb.BaseResponse{Code: 403, Message: "Permission denied"},
+			Base: &pb.BaseResponse{Code: 403, Message: "Permission denied: only owner can update announcement"},
 		}, nil
 	}
 
