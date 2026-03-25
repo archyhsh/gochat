@@ -2,26 +2,26 @@ Name: group.rpc
 ListenOn: 0.0.0.0:8082
 Etcd:
   Hosts:
-    - ${ETCD_HOST:127.0.0.1:2379}
+    - ${ETCD_HOST}
   Key: group.rpc
 
 DB:
-  DataSource: ${DB_SOURCE:gochat:gochat123@tcp(127.0.0.1:3306)/gochat?charset=utf8mb4&parseTime=true&loc=UTC}
+  DataSource: ${DB_SOURCE}
 
 Cache:
-  - Host: ${REDIS_HOST:127.0.0.1:6379}
+  - Host: ${REDIS_HOST}
     Pass: ""
     Type: node
 
 Kafka:
   Brokers:
-    - ${KAFKA_BROKERS:127.0.0.1:9092}
+    - ${KAFKA_BROKERS}
   Topic: group-topic
 
 UserRpc:
   Etcd:
     Hosts:
-      - ${ETCD_HOST:127.0.0.1:2379}
+      - ${ETCD_HOST}
     Key: user.rpc
   NonBlock: true
 
@@ -32,6 +32,6 @@ Prometheus:
 
 Telemetry:
   Name: group.rpc
-  Endpoint: ${TELEMETRY_ENDPOINT:http://127.0.0.1:4317}
+  Endpoint: ${TELEMETRY_ENDPOINT}
   Sampler: 1.0
   Batcher: otlpgrpc

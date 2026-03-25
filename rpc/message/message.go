@@ -33,7 +33,7 @@ func main() {
 	_ = godotenv.Load("../.env")
 
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	ctx := svc.NewServiceContext(c)
 
 	// 1. Initialize Snowflake ID generator (using worker ID 4 for message service)
