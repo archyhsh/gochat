@@ -11,6 +11,17 @@ service MessageService {
     rpc GetConversations(GetConversationsRequest) returns (GetConversationsResponse);
     rpc ClearUnread(ClearUnreadRequest) returns (ClearUnreadResponse);
     rpc GetMessageByID(GetMessageByIDRequest) returns (GetMessageByIDResponse);
+    rpc SaveMessage(SaveMessageRequest) returns (SaveMessageResponse);
+    rpc RestoreConversation(RestoreConversationRequest) returns (RestoreConversationResponse);
+    rpc DeleteConversation(DeleteConversationRequest) returns (DeleteConversationResponse);
+}
+
+message RestoreConversationRequest {
+    string conversation_id = 1;
+}
+
+message RestoreConversationResponse {
+    BaseResponse base = 1;
 }
 
 message ChatMessage {
@@ -23,6 +34,10 @@ message ChatMessage {
     string content = 7;
     int32 status = 8;
     int64 timestamp = 9;
+    int64 sequence = 10;
+    int64 sender_info_version = 11;
+    int64 group_meta_version = 12;
+    int64 relation_version = 13;
 }
 
 message ConversationInfo {
@@ -36,12 +51,15 @@ message ConversationInfo {
     int64 last_message_time = 8;
     int32 is_top = 9;
     int32 is_muted = 10;
+    int64 version = 11;
+    string peer_nickname = 12;
+    string peer_avatar = 13;
 }
 
 message GetMessagesRequest {
     string conversation_id = 1;
     int32 limit = 2;
-    int32 offset = 3;
+    int32 last_sequence = 3;
 }
 
 message GetMessagesResponse {
@@ -51,6 +69,7 @@ message GetMessagesResponse {
 
 message GetConversationsRequest {
     int32 limit = 1;
+    string keyword = 2;
 }
 
 message GetConversationsResponse {
@@ -73,4 +92,37 @@ message GetMessageByIDRequest {
 message GetMessageByIDResponse {
     BaseResponse base = 1;
     ChatMessage message = 2;
+}
+
+message ChatMessageEvent {
+    string msg_id = 1;
+    string conversation_id = 2;
+    int64 sender_id = 3;
+    int64 receiver_id = 4;
+    int64 group_id = 5;
+    int32 msg_type = 6;
+    string content = 7;
+    int64 timestamp = 8;
+    string trace_id = 9;
+    repeated int64 target_ids = 10; // Explicitly notify these users to initialize bookmarks
+    int64 sender_info_version = 11;
+    int64 group_meta_version = 12;
+    int64 relation_version = 13;
+    int64 sequence = 14;
+}
+
+message SaveMessageRequest {
+    ChatMessageEvent message = 1;
+}
+message SaveMessageResponse {
+    BaseResponse base = 1;
+    int64 sequence = 2;
+}
+
+message DeleteConversationRequest {
+    string conversation_id = 1;
+}
+
+message DeleteConversationResponse {
+    BaseResponse base = 1;
 }

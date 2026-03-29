@@ -87,3 +87,23 @@ func (s *GroupServiceServer) CheckGroupMember(ctx context.Context, in *pb.CheckG
 	l := logic.NewCheckGroupMemberLogic(ctx, s.svcCtx)
 	return l.CheckGroupMember(in)
 }
+
+func (s *GroupServiceServer) UpdateGroupNickname(ctx context.Context, in *pb.UpdateGroupNicknameRequest) (*pb.UpdateGroupNicknameResponse, error) {
+	l := logic.NewUpdateGroupNicknameLogic(ctx, s.svcCtx)
+	return l.UpdateGroupNickname(in)
+}
+
+func (s *GroupServiceServer) GetGroupRequests(ctx context.Context, in *pb.GetGroupRequestsRequest) (*pb.GetGroupRequestsResponse, error) {
+	l := logic.NewGetGroupRequestsLogic(ctx, s.svcCtx)
+	return l.GetGroupRequests(in)
+}
+
+func (s *GroupServiceServer) HandleGroupRequest(ctx context.Context, in *pb.HandleGroupRequestRequest) (*pb.HandleGroupRequestResponse, error) {
+	l := logic.NewHandleGroupRequestLogic(ctx, s.svcCtx)
+	return l.HandleGroupRequest(in)
+}
+
+func (s *GroupServiceServer) GetGroupsByIds(ctx context.Context, in *pb.GetGroupsByIdsRequest) (*pb.GetGroupsByIdsResponse, error) {
+	l := logic.NewGetGroupsByIdsLogic(ctx, s.svcCtx)
+	return l.GetGroupsByIds(in)
+}

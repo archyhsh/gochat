@@ -2,10 +2,15 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/user/internal/svc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -26,8 +31,18 @@ func NewUpdateUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Update
 }
 
 func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserResponse, error) {
-	// TODO: get userId from context
-	userId := int64(1)
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
 	userInfo, err := l.svcCtx.UserModel.FindOne(l.ctx, userId)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to find user info: "+err.Error())
@@ -41,13 +56,34 @@ func (l *UpdateUserLogic) UpdateUser(in *pb.UpdateUserRequest) (*pb.UpdateUserRe
 	userInfo.Phone = in.Phone
 	userInfo.Email = in.Email
 	userInfo.Gender = int64(in.Gender)
+	userInfo.InfoVersion = time.Now().UnixNano()
 	err = l.svcCtx.UserModel.Update(l.ctx, userInfo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to update user info: "+err.Error())
 	}
 
+	// Send user_event to Kafka for cache invalidation
+	// we didn't push this to all users
+	event := map[string]interface{}{
+		"type":         "user_event",
+		"action":       "update",
+		"user_id":      userId,
+		"info_version": userInfo.InfoVersion,
+		"timestamp":    time.Now().Unix(),
+	}
+	data, _ := json.Marshal(event)
+	_ = l.svcCtx.Producer.Send(l.ctx, []byte(fmt.Sprintf("user_%d", userId)), data)
+
 	return &pb.UpdateUserResponse{
 		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
-		User: &pb.User{Id: userId, Nickname: in.Nickname, Avatar: in.Avatar, Phone: in.Phone, Email: in.Email, Gender: in.Gender},
+		User: &pb.User{
+			Id:          userId,
+			Nickname:    in.Nickname,
+			Avatar:      in.Avatar,
+			Phone:       in.Phone,
+			Email:       in.Email,
+			Gender:      in.Gender,
+			InfoVersion: userInfo.InfoVersion,
+		},
 	}, nil
 }

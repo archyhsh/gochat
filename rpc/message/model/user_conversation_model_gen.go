@@ -46,16 +46,20 @@ type (
 		Id             int64     `db:"id"`
 		UserId         int64     `db:"user_id"`
 		ConversationId string    `db:"conversation_id"`
-		PeerId         int64     `db:"peer_id"` // Receiver or Group ID
+		PeerId         int64     `db:"peer_id"`     // Receiver or Group ID
+		PeerName       string    `db:"peer_name"`   // Redundant peer name for search
+		PeerAvatar     string    `db:"peer_avatar"` // Redundant peer avatar
 		UnreadCount    int64     `db:"unread_count"`
 		LastMsgId      string    `db:"last_msg_id"`
 		LastMsgTime    time.Time `db:"last_msg_time"`
 		LastMsgContent string    `db:"last_msg_content"`
 		LastMsgType    int64     `db:"last_msg_type"`
 		LastSenderId   int64     `db:"last_sender_id"`
+		ReadSequence   int64     `db:"read_sequence"` // last read msg sequence
 		IsTop          int64     `db:"is_top"`
 		IsMuted        int64     `db:"is_muted"`
 		IsDeleted      int64     `db:"is_deleted"`
+		Version        int64     `db:"version"` // delete/top/muted version(for multiple devices)
 		CreatedAt      time.Time `db:"created_at"`
 		UpdatedAt      time.Time `db:"updated_at"`
 	}
@@ -124,8 +128,8 @@ func (m *defaultUserConversationModel) Insert(ctx context.Context, data *UserCon
 	userConversationIdKey := fmt.Sprintf("%s%v", cacheUserConversationIdPrefix, data.Id)
 	userConversationUserIdConversationIdKey := fmt.Sprintf("%s%v:%v", cacheUserConversationUserIdConversationIdPrefix, data.UserId, data.ConversationId)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, userConversationRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.UserId, data.ConversationId, data.PeerId, data.UnreadCount, data.LastMsgId, data.LastMsgTime, data.LastMsgContent, data.LastMsgType, data.LastSenderId, data.IsTop, data.IsMuted, data.IsDeleted)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.table, userConversationRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.UserId, data.ConversationId, data.PeerId, data.PeerName, data.PeerAvatar, data.UnreadCount, data.LastMsgId, data.LastMsgTime, data.LastMsgContent, data.LastMsgType, data.LastSenderId, data.ReadSequence, data.IsTop, data.IsMuted, data.IsDeleted, data.Version)
 	}, userConversationIdKey, userConversationUserIdConversationIdKey)
 	return ret, err
 }
@@ -140,7 +144,7 @@ func (m *defaultUserConversationModel) Update(ctx context.Context, newData *User
 	userConversationUserIdConversationIdKey := fmt.Sprintf("%s%v:%v", cacheUserConversationUserIdConversationIdPrefix, data.UserId, data.ConversationId)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, userConversationRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.UserId, newData.ConversationId, newData.PeerId, newData.UnreadCount, newData.LastMsgId, newData.LastMsgTime, newData.LastMsgContent, newData.LastMsgType, newData.LastSenderId, newData.IsTop, newData.IsMuted, newData.IsDeleted, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.UserId, newData.ConversationId, newData.PeerId, newData.PeerName, newData.PeerAvatar, newData.UnreadCount, newData.LastMsgId, newData.LastMsgTime, newData.LastMsgContent, newData.LastMsgType, newData.LastSenderId, newData.ReadSequence, newData.IsTop, newData.IsMuted, newData.IsDeleted, newData.Version, newData.Id)
 	}, userConversationIdKey, userConversationUserIdConversationIdKey)
 	return err
 }

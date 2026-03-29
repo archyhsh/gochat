@@ -1,0 +1,85 @@
+syntax = "v1"
+
+type (
+	Message {
+		MsgId          string `json:"msg_id"`
+		ConversationId string `json:"conversation_id"`
+		SenderId       int64  `json:"sender_id"`
+		Content        string `json:"content"`
+		MsgType        int    `json:"msg_type"`
+		Timestamp      int64  `json:"timestamp"`
+	}
+	MessagesResponse {
+		Messages []Message `json:"messages"`
+	}
+	Conversation {
+		ConversationId  string `json:"conversation_id"`
+		PeerId          int64  `json:"peer_id"`
+		UnreadCount     int    `json:"unread_count"`
+		LastMessage     string `json:"last_message"`
+		LastMessageTime int64  `json:"last_message_time"`
+		Nickname        string `json:"nickname"`
+		Avatar          string `json:"avatar"`
+	}
+	GetConversationsRequest {
+		Keyword string `form:"keyword,optional"`
+	}
+	ConversationsResponse {
+		Conversations []Conversation `json:"conversations"`
+	}
+	GetMessagesRequest {
+		ConversationId string `form:"conversation_id"`
+		Limit          int    `form:"limit,default=20"`
+		LastSequence   int64  `form:"last_sequence,optional"`
+	}
+	ClearUnreadRequest {
+		ConversationId string `json:"conversation_id"`
+	}
+	GetMessageByIdRequest {
+		MsgId string `path:"msg_id"`
+	}
+	SendMessageRequest {
+		ConversationId string `json:"conversation_id"`
+		Content        string `json:"content"`
+		MsgType        int    `json:"msg_type"`
+		ReceiverId     int64  `json:"receiver_id,optional"`
+		GroupId        int64  `json:"group_id,optional"`
+	}
+	SendMessageResponse {
+		MsgId     string `json:"msg_id"`
+		Timestamp int64  `json:"timestamp"`
+	}
+	RestoreConversationRequest {
+		ConversationId string `json:"conversation_id"`
+	}
+	DeleteConversationRequest {
+		ConversationId string `json:"conversation_id"`
+	}
+)
+
+@server (
+	group:      message
+	middleware: AuthMiddleware
+)
+service gateway {
+	@handler GetMessages
+	get /messages (GetMessagesRequest) returns (MessagesResponse)
+
+	@handler GetConversations
+	get /conversations (GetConversationsRequest) returns (ConversationsResponse)
+
+	@handler ClearUnread
+	post /conversations/clear_unread (ClearUnreadRequest) returns (CommonResponse)
+
+	@handler GetMessageById
+	get /messages/:msg_id (GetMessageByIdRequest) returns (Message)
+
+	@handler SendMessage
+	post /messages/send (SendMessageRequest) returns (SendMessageResponse)
+
+	@handler RestoreConversation
+	post /conversations/restore (RestoreConversationRequest) returns (CommonResponse)
+
+	@handler DeleteConversation
+	post /conversations/delete (DeleteConversationRequest) returns (CommonResponse)
+}

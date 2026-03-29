@@ -16,6 +16,7 @@ type (
 		groupMemberModel
 		FindMembersByGroupId(ctx context.Context, groupId int64) ([]*GroupMember, error)
 		FindMemberByGroupIdAndUserId(ctx context.Context, groupId int64, userId int64) (*GroupMember, error)
+		UpdateNickname(ctx context.Context, groupId int64, userId int64, nickname string) error
 	}
 
 	customGroupMemberModel struct {
@@ -40,4 +41,10 @@ func (m *customGroupMemberModel) FindMemberByGroupIdAndUserId(ctx context.Contex
 	var member GroupMember
 	err := m.QueryRowNoCacheCtx(ctx, &member, "select * from `group_member` where group_id = ? and user_id = ?", groupId, userId)
 	return &member, err
+}
+
+func (m *customGroupMemberModel) UpdateNickname(ctx context.Context, groupId int64, userId int64, nickname string) error {
+	query := "update `group_member` set nickname = ? where group_id = ? and user_id = ?"
+	_, err := m.ExecNoCacheCtx(ctx, query, nickname, groupId, userId)
+	return err
 }

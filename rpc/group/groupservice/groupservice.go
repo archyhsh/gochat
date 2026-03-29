@@ -14,34 +14,43 @@ import (
 )
 
 type (
-	CheckGroupMemberRequest    = pb.CheckGroupMemberRequest
-	CheckGroupMemberResponse   = pb.CheckGroupMemberResponse
-	CreateGroupRequest         = pb.CreateGroupRequest
-	CreateGroupResponse        = pb.CreateGroupResponse
-	DismissGroupRequest        = pb.DismissGroupRequest
-	DismissGroupResponse       = pb.DismissGroupResponse
-	GetAnnouncementRequest     = pb.GetAnnouncementRequest
-	GetAnnouncementResponse    = pb.GetAnnouncementResponse
-	GetGroupInfoRequest        = pb.GetGroupInfoRequest
-	GetGroupInfoResponse       = pb.GetGroupInfoResponse
-	GetGroupListRequest        = pb.GetGroupListRequest
-	GetGroupListResponse       = pb.GetGroupListResponse
-	GetGroupMembersRequest     = pb.GetGroupMembersRequest
-	GetGroupMembersResponse    = pb.GetGroupMembersResponse
-	Group                      = pb.Group
-	GroupMember                = pb.GroupMember
-	InviteMembersRequest       = pb.InviteMembersRequest
-	InviteMembersResponse      = pb.InviteMembersResponse
-	JoinGroupRequest           = pb.JoinGroupRequest
-	JoinGroupResponse          = pb.JoinGroupResponse
-	KickGroupMemberRequest     = pb.KickGroupMemberRequest
-	KickGroupMemberResponse    = pb.KickGroupMemberResponse
-	QuitGroupRequest           = pb.QuitGroupRequest
-	QuitGroupResponse          = pb.QuitGroupResponse
-	SearchGroupsRequest        = pb.SearchGroupsRequest
-	SearchGroupsResponse       = pb.SearchGroupsResponse
-	UpdateAnnouncementRequest  = pb.UpdateAnnouncementRequest
-	UpdateAnnouncementResponse = pb.UpdateAnnouncementResponse
+	CheckGroupMemberRequest     = pb.CheckGroupMemberRequest
+	CheckGroupMemberResponse    = pb.CheckGroupMemberResponse
+	CreateGroupRequest          = pb.CreateGroupRequest
+	CreateGroupResponse         = pb.CreateGroupResponse
+	DismissGroupRequest         = pb.DismissGroupRequest
+	DismissGroupResponse        = pb.DismissGroupResponse
+	GetAnnouncementRequest      = pb.GetAnnouncementRequest
+	GetAnnouncementResponse     = pb.GetAnnouncementResponse
+	GetGroupInfoRequest         = pb.GetGroupInfoRequest
+	GetGroupInfoResponse        = pb.GetGroupInfoResponse
+	GetGroupListRequest         = pb.GetGroupListRequest
+	GetGroupListResponse        = pb.GetGroupListResponse
+	GetGroupMembersRequest      = pb.GetGroupMembersRequest
+	GetGroupMembersResponse     = pb.GetGroupMembersResponse
+	GetGroupRequestsRequest     = pb.GetGroupRequestsRequest
+	GetGroupRequestsResponse    = pb.GetGroupRequestsResponse
+	GetGroupsByIdsRequest       = pb.GetGroupsByIdsRequest
+	GetGroupsByIdsResponse      = pb.GetGroupsByIdsResponse
+	Group                       = pb.Group
+	GroupMember                 = pb.GroupMember
+	GroupRequest                = pb.GroupRequest
+	HandleGroupRequestRequest   = pb.HandleGroupRequestRequest
+	HandleGroupRequestResponse  = pb.HandleGroupRequestResponse
+	InviteMembersRequest        = pb.InviteMembersRequest
+	InviteMembersResponse       = pb.InviteMembersResponse
+	JoinGroupRequest            = pb.JoinGroupRequest
+	JoinGroupResponse           = pb.JoinGroupResponse
+	KickGroupMemberRequest      = pb.KickGroupMemberRequest
+	KickGroupMemberResponse     = pb.KickGroupMemberResponse
+	QuitGroupRequest            = pb.QuitGroupRequest
+	QuitGroupResponse           = pb.QuitGroupResponse
+	SearchGroupsRequest         = pb.SearchGroupsRequest
+	SearchGroupsResponse        = pb.SearchGroupsResponse
+	UpdateAnnouncementRequest   = pb.UpdateAnnouncementRequest
+	UpdateAnnouncementResponse  = pb.UpdateAnnouncementResponse
+	UpdateGroupNicknameRequest  = pb.UpdateGroupNicknameRequest
+	UpdateGroupNicknameResponse = pb.UpdateGroupNicknameResponse
 
 	GroupService interface {
 		CreateGroup(ctx context.Context, in *CreateGroupRequest, opts ...grpc.CallOption) (*CreateGroupResponse, error)
@@ -57,6 +66,10 @@ type (
 		SearchGroups(ctx context.Context, in *SearchGroupsRequest, opts ...grpc.CallOption) (*SearchGroupsResponse, error)
 		InviteMembers(ctx context.Context, in *InviteMembersRequest, opts ...grpc.CallOption) (*InviteMembersResponse, error)
 		CheckGroupMember(ctx context.Context, in *CheckGroupMemberRequest, opts ...grpc.CallOption) (*CheckGroupMemberResponse, error)
+		UpdateGroupNickname(ctx context.Context, in *UpdateGroupNicknameRequest, opts ...grpc.CallOption) (*UpdateGroupNicknameResponse, error)
+		GetGroupRequests(ctx context.Context, in *GetGroupRequestsRequest, opts ...grpc.CallOption) (*GetGroupRequestsResponse, error)
+		HandleGroupRequest(ctx context.Context, in *HandleGroupRequestRequest, opts ...grpc.CallOption) (*HandleGroupRequestResponse, error)
+		GetGroupsByIds(ctx context.Context, in *GetGroupsByIdsRequest, opts ...grpc.CallOption) (*GetGroupsByIdsResponse, error)
 	}
 
 	defaultGroupService struct {
@@ -133,4 +146,24 @@ func (m *defaultGroupService) InviteMembers(ctx context.Context, in *InviteMembe
 func (m *defaultGroupService) CheckGroupMember(ctx context.Context, in *CheckGroupMemberRequest, opts ...grpc.CallOption) (*CheckGroupMemberResponse, error) {
 	client := pb.NewGroupServiceClient(m.cli.Conn())
 	return client.CheckGroupMember(ctx, in, opts...)
+}
+
+func (m *defaultGroupService) UpdateGroupNickname(ctx context.Context, in *UpdateGroupNicknameRequest, opts ...grpc.CallOption) (*UpdateGroupNicknameResponse, error) {
+	client := pb.NewGroupServiceClient(m.cli.Conn())
+	return client.UpdateGroupNickname(ctx, in, opts...)
+}
+
+func (m *defaultGroupService) GetGroupRequests(ctx context.Context, in *GetGroupRequestsRequest, opts ...grpc.CallOption) (*GetGroupRequestsResponse, error) {
+	client := pb.NewGroupServiceClient(m.cli.Conn())
+	return client.GetGroupRequests(ctx, in, opts...)
+}
+
+func (m *defaultGroupService) HandleGroupRequest(ctx context.Context, in *HandleGroupRequestRequest, opts ...grpc.CallOption) (*HandleGroupRequestResponse, error) {
+	client := pb.NewGroupServiceClient(m.cli.Conn())
+	return client.HandleGroupRequest(ctx, in, opts...)
+}
+
+func (m *defaultGroupService) GetGroupsByIds(ctx context.Context, in *GetGroupsByIdsRequest, opts ...grpc.CallOption) (*GetGroupsByIdsResponse, error) {
+	client := pb.NewGroupServiceClient(m.cli.Conn())
+	return client.GetGroupsByIds(ctx, in, opts...)
 }

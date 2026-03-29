@@ -20,6 +20,58 @@ service GroupService {
     rpc SearchGroups(SearchGroupsRequest) returns (SearchGroupsResponse);
     rpc InviteMembers(InviteMembersRequest) returns (InviteMembersResponse);
     rpc CheckGroupMember(CheckGroupMemberRequest) returns (CheckGroupMemberResponse);
+    rpc UpdateGroupNickname(UpdateGroupNicknameRequest) returns (UpdateGroupNicknameResponse);
+    rpc GetGroupRequests(GetGroupRequestsRequest) returns (GetGroupRequestsResponse);
+    rpc HandleGroupRequest(HandleGroupRequestRequest) returns (HandleGroupRequestResponse);
+    rpc GetGroupsByIds(GetGroupsByIdsRequest) returns (GetGroupsByIdsResponse);
+}
+
+message GetGroupsByIdsRequest {
+    repeated int64 group_ids = 1;
+}
+
+message GetGroupsByIdsResponse {
+    BaseResponse base = 1;
+    repeated Group groups = 2;
+}
+
+message GetGroupRequestsRequest {
+    int64 group_id = 1;
+}
+
+message GetGroupRequestsResponse {
+    BaseResponse base = 1;
+    repeated GroupRequest requests = 2;
+}
+
+message HandleGroupRequestRequest {
+    int64 request_id = 1;
+    bool accept = 2;
+}
+
+message HandleGroupRequestResponse {
+    BaseResponse base = 1;
+}
+
+message GroupRequest {
+    int64 id = 1;
+    int64 group_id = 2;
+    int64 user_id = 3;
+    string message = 4;
+    int32 status = 5;
+    int64 created_at = 6;
+    string nickname = 7;
+    string avatar = 8;
+}
+
+message UpdateGroupNicknameRequest {
+    int64 group_id = 1;
+    int64 user_id = 2;
+    string nickname = 3;
+}
+
+message UpdateGroupNicknameResponse {
+    BaseResponse base = 1;
 }
 
 message CheckGroupMemberRequest {
@@ -42,6 +94,7 @@ message Group {
     int32 status = 7;
     int64 created_at = 8;
     int64 updated_at = 9;
+    int64 meta_version = 10;
 }
 
 message GroupMember {
@@ -50,6 +103,7 @@ message GroupMember {
     string avatar = 3;
     int32 role = 4;
     int64 joined_at = 5;
+    int64 info_version = 6;
 }
 
 message CreateGroupRequest {

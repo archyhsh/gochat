@@ -57,3 +57,8 @@ func (s *UserServiceServer) GetUsersByIds(ctx context.Context, in *pb.GetUsersBy
 	l := logic.NewGetUsersByIdsLogic(ctx, s.svcCtx)
 	return l.GetUsersByIds(in)
 }
+
+func (s *UserServiceServer) ForgotPassword(ctx context.Context, in *pb.ForgotPasswordRequest) (*pb.ForgotPasswordResponse, error) {
+	l := logic.NewForgotPasswordLogic(ctx, s.svcCtx)
+	return l.ForgotPassword(in)
+}

@@ -1,16 +1,34 @@
 Name: user.rpc
-ListenOn: 0.0.0.0:8080
+ListenOn: 0.0.0.0:8081
 Etcd:
   Hosts:
-  - 127.0.0.1:2379
+  - ${ETCD_HOST}
   Key: user.rpc
+
+DB:
+  DataSource: ${DB_SOURCE}
+
+Cache:
+  - Host: ${REDIS_HOST}
+    Pass: ""
+    Type: node
 
 Kafka:
   Brokers:
-    - localhost:9091
-  Topics:
-    Group: user-topic
+    - ${KAFKA_BROKERS}
+  Topic: user-topic
 
-Auth:
+JWT:
   AccessSecret: ${JWT_SECRET}
-  AccessExpire: ${JWT_EXPIRE}
+  AccessExpire: 604800
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9091
+  Path: /metrics
+
+Telemetry:
+  Name: user.rpc
+  Endpoint: ${TELEMETRY_ENDPOINT}
+  Sampler: 1.0
+  Batcher: otlpgrpc

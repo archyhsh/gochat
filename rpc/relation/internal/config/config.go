@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/archyhsh/gochat/pkg/kafka"
 	"github.com/zeromicro/go-zero/core/stores/cache"
 	"github.com/zeromicro/go-zero/zrpc"
 )
@@ -11,7 +10,10 @@ type Config struct {
 	DB struct {
 		DataSource string
 	}
-	Cache    cache.CacheConf
-	Producer *kafka.Producer
-	UserRpc  zrpc.RpcClientConf
+	Cache cache.CacheConf
+	Kafka struct {
+		Brokers []string
+		Topic   string
+	}
+	UserRpc zrpc.RpcClientConf
 }

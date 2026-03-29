@@ -1,0 +1,73 @@
+syntax = "v1"
+
+type (
+	ApplyRequest {
+		ToUserId int64  `json:"to_user_id"`
+		Message  string `json:"message,optional"`
+	}
+	HandleApplyRequest {
+		ApplyId int64 `json:"apply_id"`
+		Accept  bool  `json:"accept"`
+	}
+	FriendInfo {
+		UserId   int64  `json:"user_id"`
+		Nickname string `json:"nickname"`
+		Avatar   string `json:"avatar"`
+		Remark   string `json:"remark"`
+	}
+	FriendListResponse {
+		Friends []FriendInfo `json:"friends"`
+	}
+	ApplyInfo {
+		Id         int64  `json:"id"`
+		FromUserId int64  `json:"from_user_id"`
+		Message    string `json:"message"`
+		Status     int    `json:"status"`
+	}
+	ApplyListResponse {
+		Applies []ApplyInfo `json:"applies"`
+	}
+	UpdateRemarkRequest {
+		FriendId int64  `json:"friend_id"`
+		Remark   string `json:"remark"`
+	}
+	DeleteFriendRequest {
+		Id int64 `path:"id"`
+	}
+	BlockFriendRequest {
+		Id int64 `path:"id"`
+	}
+	UnblockFriendRequest {
+		Id int64 `path:"id"`
+	}
+)
+
+@server (
+	group:      relation
+	middleware: AuthMiddleware
+)
+service gateway {
+	@handler ApplyFriend
+	post /friend/apply (ApplyRequest) returns (CommonResponse)
+
+	@handler HandleApply
+	post /friend/apply/handle (HandleApplyRequest) returns (CommonResponse)
+
+	@handler GetApplyList
+	get /friend/apply/list returns (ApplyListResponse)
+
+	@handler GetFriendList
+	get /friends returns (FriendListResponse)
+
+	@handler DeleteFriend
+	delete /friends/:id (DeleteFriendRequest) returns (CommonResponse)
+
+	@handler BlockFriend
+	post /friends/:id/block (BlockFriendRequest) returns (CommonResponse)
+
+	@handler UnblockFriend
+	post /friends/:id/unblock (UnblockFriendRequest) returns (CommonResponse)
+
+	@handler UpdateRemark
+	put /friends/remark (UpdateRemarkRequest) returns (CommonResponse)
+}

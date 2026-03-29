@@ -9,6 +9,7 @@ import (
 	"github.com/archyhsh/gochat/rpc/group/internal/svc"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,10 +31,20 @@ func NewQuitGroupLogic(ctx context.Context, svcCtx *svc.ServiceContext) *QuitGro
 }
 
 func (l *QuitGroupLogic) QuitGroup(in *pb.QuitGroupRequest) (*pb.QuitGroupResponse, error) {
-	// TODO: Get userID from context
-	userID := int64(1)
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userID, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
 
-	err := l.svcCtx.SqlConn.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
+	err = l.svcCtx.SqlConn.TransactCtx(l.ctx, func(ctx context.Context, session sqlx.Session) error {
 		member, err := l.svcCtx.GroupMemberModel.FindMemberByGroupIdAndUserId(ctx, in.GroupId, userID)
 		if err != nil {
 			return err
@@ -53,7 +64,7 @@ func (l *QuitGroupLogic) QuitGroup(in *pb.QuitGroupRequest) (*pb.QuitGroupRespon
 		return nil, status.Error(codes.Internal, "failed to quit group")
 	}
 
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
 			"action":    "quit",
@@ -63,7 +74,7 @@ func (l *QuitGroupLogic) QuitGroup(in *pb.QuitGroupRequest) (*pb.QuitGroupRespon
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		_ = l.svcCtx.Config.Producer.Send([]byte(key), data)
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 	}
 
 	return &pb.QuitGroupResponse{

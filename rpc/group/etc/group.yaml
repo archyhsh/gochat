@@ -1,12 +1,37 @@
 Name: group.rpc
-ListenOn: 0.0.0.0:8083
+ListenOn: 0.0.0.0:8082
 Etcd:
   Hosts:
-  - 127.0.0.1:2379
+    - ${ETCD_HOST}
   Key: group.rpc
+
+DB:
+  DataSource: ${DB_SOURCE}
+
+Cache:
+  - Host: ${REDIS_HOST}
+    Pass: ""
+    Type: node
 
 Kafka:
   Brokers:
-    - localhost:9092
-  Topics:
-    Group: group-topic
+    - ${KAFKA_BROKERS}
+  Topic: group-topic
+
+UserRpc:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}
+    Key: user.rpc
+  NonBlock: true
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9091
+  Path: /metrics
+
+Telemetry:
+  Name: group.rpc
+  Endpoint: ${TELEMETRY_ENDPOINT}
+  Sampler: 1.0
+  Batcher: otlpgrpc

@@ -2,11 +2,15 @@ package logic
 
 import (
 	"context"
+	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/archyhsh/gochat/rpc/message/internal/svc"
 	"github.com/archyhsh/gochat/rpc/message/model"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -26,22 +30,44 @@ func NewClearUnreadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Clear
 	}
 }
 
+// 1、用户点击进入特定会话界面 触发清除
+// 2、用户通过搜索恢复一个被删除的对话 触发清除
 func (l *ClearUnreadLogic) ClearUnread(in *pb.ClearUnreadRequest) (*pb.ClearUnreadResponse, error) {
-	// a user has read the messages in a conversation, clear the unread count for that conversation
-	// todo: get userId from context
-	userId := int64(1)
-	userConversation, err := l.svcCtx.UserConversationModel.FindUserConversationsByUserIdAndConversationId(userId, in.ConversationId)
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userId, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
+
+	conv, err := l.svcCtx.ConversationModel.FindOneByConversationId(l.ctx, in.ConversationId)
 	if err != nil {
 		if err == model.ErrNotFound {
-			return nil, status.Error(codes.NotFound, "user conversation not found")
-		} else {
-			return nil, status.Error(codes.Internal, "internal error")
+			return nil, status.Error(codes.NotFound, "Conversation not found")
 		}
+		return nil, status.Error(codes.Internal, "Internal database error")
 	}
-	userConversation.UnreadCount = 0
-	err = l.svcCtx.UserConversationModel.Update(l.ctx, userConversation)
+
+	version := time.Now().UnixNano()
+	err = l.svcCtx.UserConversationModel.UpdateReadSequence(l.ctx, userId, in.ConversationId, conv.LatestSeq)
+	if err == nil {
+		_ = l.svcCtx.UserConversationModel.UpdateVersion(l.ctx, userId, in.ConversationId, version)
+
+		// Clear Redis unread counter
+		unreadKey := fmt.Sprintf("unread:cnt:%d:%s", userId, in.ConversationId)
+		_, _ = l.svcCtx.Redis.Del(unreadKey)
+	}
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to update user conversation")
+		return nil, status.Error(codes.Internal, "Failed to clear unread: "+err.Error())
 	}
-	return &pb.ClearUnreadResponse{Base: &pb.BaseResponse{Code: 200, Message: "success"}}, nil
+
+	return &pb.ClearUnreadResponse{
+		Base: &pb.BaseResponse{Code: 200, Message: "Success"},
+	}, nil
 }

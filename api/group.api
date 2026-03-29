@@ -1,0 +1,135 @@
+syntax = "v1"
+
+type (
+	CreateGroupRequest {
+		Name        string `json:"name"`
+		Avatar      string `json:"avatar,optional"`
+		Description string `json:"description,optional"`
+	}
+	GroupInfo {
+		GroupId      int64  `json:"id"`
+		Name         string `json:"name"`
+		Avatar       string `json:"avatar"`
+		Description  string `json:"description"`
+		Announcement string `json:"announcement"`
+		OwnerId      int64  `json:"owner_id"`
+	}
+	GetGroupInfoRequest {
+		GroupId int64 `path:"id"`
+	}
+	SearchGroupsRequest {
+		Keyword string `json:"keyword"`
+	}
+	GroupListResponse {
+		Groups []GroupInfo `json:"groups"`
+	}
+	GroupMember {
+		UserId   int64  `json:"user_id"`
+		Nickname string `json:"nickname"`
+		Avatar   string `json:"avatar"`
+		Role     int    `json:"role"`
+	}
+	GetGroupMembersRequest {
+		GroupId int64 `path:"id"`
+	}
+	GroupMembersResponse {
+		Members []GroupMember `json:"members"`
+	}
+	JoinGroupRequest {
+		GroupId int64  `path:"id"`
+		Message string `json:"message,optional"`
+	}
+	GetAnnouncementRequest {
+		Id int64 `path:"id"`
+	}
+	UpdateAnnouncementRequest {
+		Id      int64  `path:"id"`
+		Content string `json:"content"`
+	}
+	InviteRequest {
+		Id        int64   `path:"id"`
+		MemberIds []int64 `json:"member_ids"`
+	}
+	UpdateGroupNicknameRequest {
+		GroupId  int64  `path:"id"`
+		Nickname string `json:"nickname"`
+	}
+	GroupRequest {
+		Id        int64  `json:"id"`
+		GroupId   int64  `json:"group_id"`
+		UserId    int64  `json:"user_id"`
+		Message   string `json:"message"`
+		Status    int    `json:"status"`
+		CreatedAt int64  `json:"created_at"`
+		Nickname  string `json:"nickname"`
+		Avatar    string `json:"avatar"`
+	}
+	GetGroupRequestsResponse {
+		Requests []GroupRequest `json:"requests"`
+	}
+	HandleGroupRequest {
+		RequestId int64 `json:"request_id"`
+		Accept    bool  `json:"accept"`
+	}
+	QuitGroupRequest {
+		GroupId int64 `path:"id"`
+	}
+	KickMemberRequest {
+		GroupId  int64 `path:"id"`
+		MemberId int64 `path:"member_id"`
+	}
+	DismissGroupRequest {
+		GroupId int64 `path:"id"`
+	}
+)
+
+@server (
+	group:      group
+	middleware: AuthMiddleware
+)
+service gateway {
+	@handler CreateGroup
+	post /groups (CreateGroupRequest) returns (GroupInfo)
+
+	@handler GetGroupList
+	get /groups returns (GroupListResponse)
+
+	@handler GetGroupInfo
+	get /groups/:id (GetGroupInfoRequest) returns (GroupInfo)
+
+	@handler GetGroupMembers
+	get /groups/:id/members (GetGroupMembersRequest) returns (GroupMembersResponse)
+
+	@handler JoinGroup
+	post /groups/:id/join (JoinGroupRequest) returns (CommonResponse)
+
+	@handler QuitGroup
+	post /groups/:id/quit (QuitGroupRequest) returns (CommonResponse)
+
+	@handler KickMember
+	post /groups/:id/kick/:member_id (KickMemberRequest) returns (CommonResponse)
+
+	@handler DismissGroup
+	delete /groups/:id (DismissGroupRequest) returns (CommonResponse)
+
+	@handler UpdateAnnouncement
+	put /groups/:id/announcement (UpdateAnnouncementRequest) returns (CommonResponse)
+
+	@handler GetAnnouncement
+	get /groups/:id/announcement (GetAnnouncementRequest) returns (CommonResponse)
+
+	@handler SearchGroups
+	get /groups/search (SearchGroupsRequest) returns (GroupListResponse)
+
+	@handler InviteMembers
+	post /groups/:id/invite (InviteRequest) returns (CommonResponse)
+
+	@handler UpdateGroupNickname
+	put /groups/:id/nickname (UpdateGroupNicknameRequest) returns (CommonResponse)
+
+	@handler GetGroupRequests
+	get /groups/requests returns (GetGroupRequestsResponse)
+
+	@handler HandleGroupRequest
+	post /groups/requests/handle (HandleGroupRequest) returns (CommonResponse)
+}

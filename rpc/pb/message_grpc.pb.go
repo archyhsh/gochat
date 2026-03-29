@@ -19,10 +19,13 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MessageService_GetMessages_FullMethodName      = "/gochat.rpc.MessageService/GetMessages"
-	MessageService_GetConversations_FullMethodName = "/gochat.rpc.MessageService/GetConversations"
-	MessageService_ClearUnread_FullMethodName      = "/gochat.rpc.MessageService/ClearUnread"
-	MessageService_GetMessageByID_FullMethodName   = "/gochat.rpc.MessageService/GetMessageByID"
+	MessageService_GetMessages_FullMethodName         = "/gochat.rpc.MessageService/GetMessages"
+	MessageService_GetConversations_FullMethodName    = "/gochat.rpc.MessageService/GetConversations"
+	MessageService_ClearUnread_FullMethodName         = "/gochat.rpc.MessageService/ClearUnread"
+	MessageService_GetMessageByID_FullMethodName      = "/gochat.rpc.MessageService/GetMessageByID"
+	MessageService_SaveMessage_FullMethodName         = "/gochat.rpc.MessageService/SaveMessage"
+	MessageService_RestoreConversation_FullMethodName = "/gochat.rpc.MessageService/RestoreConversation"
+	MessageService_DeleteConversation_FullMethodName  = "/gochat.rpc.MessageService/DeleteConversation"
 )
 
 // MessageServiceClient is the client API for MessageService service.
@@ -33,6 +36,9 @@ type MessageServiceClient interface {
 	GetConversations(ctx context.Context, in *GetConversationsRequest, opts ...grpc.CallOption) (*GetConversationsResponse, error)
 	ClearUnread(ctx context.Context, in *ClearUnreadRequest, opts ...grpc.CallOption) (*ClearUnreadResponse, error)
 	GetMessageByID(ctx context.Context, in *GetMessageByIDRequest, opts ...grpc.CallOption) (*GetMessageByIDResponse, error)
+	SaveMessage(ctx context.Context, in *SaveMessageRequest, opts ...grpc.CallOption) (*SaveMessageResponse, error)
+	RestoreConversation(ctx context.Context, in *RestoreConversationRequest, opts ...grpc.CallOption) (*RestoreConversationResponse, error)
+	DeleteConversation(ctx context.Context, in *DeleteConversationRequest, opts ...grpc.CallOption) (*DeleteConversationResponse, error)
 }
 
 type messageServiceClient struct {
@@ -83,6 +89,36 @@ func (c *messageServiceClient) GetMessageByID(ctx context.Context, in *GetMessag
 	return out, nil
 }
 
+func (c *messageServiceClient) SaveMessage(ctx context.Context, in *SaveMessageRequest, opts ...grpc.CallOption) (*SaveMessageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SaveMessageResponse)
+	err := c.cc.Invoke(ctx, MessageService_SaveMessage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *messageServiceClient) RestoreConversation(ctx context.Context, in *RestoreConversationRequest, opts ...grpc.CallOption) (*RestoreConversationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RestoreConversationResponse)
+	err := c.cc.Invoke(ctx, MessageService_RestoreConversation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *messageServiceClient) DeleteConversation(ctx context.Context, in *DeleteConversationRequest, opts ...grpc.CallOption) (*DeleteConversationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteConversationResponse)
+	err := c.cc.Invoke(ctx, MessageService_DeleteConversation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MessageServiceServer is the server API for MessageService service.
 // All implementations must embed UnimplementedMessageServiceServer
 // for forward compatibility.
@@ -91,6 +127,9 @@ type MessageServiceServer interface {
 	GetConversations(context.Context, *GetConversationsRequest) (*GetConversationsResponse, error)
 	ClearUnread(context.Context, *ClearUnreadRequest) (*ClearUnreadResponse, error)
 	GetMessageByID(context.Context, *GetMessageByIDRequest) (*GetMessageByIDResponse, error)
+	SaveMessage(context.Context, *SaveMessageRequest) (*SaveMessageResponse, error)
+	RestoreConversation(context.Context, *RestoreConversationRequest) (*RestoreConversationResponse, error)
+	DeleteConversation(context.Context, *DeleteConversationRequest) (*DeleteConversationResponse, error)
 	mustEmbedUnimplementedMessageServiceServer()
 }
 
@@ -112,6 +151,15 @@ func (UnimplementedMessageServiceServer) ClearUnread(context.Context, *ClearUnre
 }
 func (UnimplementedMessageServiceServer) GetMessageByID(context.Context, *GetMessageByIDRequest) (*GetMessageByIDResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMessageByID not implemented")
+}
+func (UnimplementedMessageServiceServer) SaveMessage(context.Context, *SaveMessageRequest) (*SaveMessageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SaveMessage not implemented")
+}
+func (UnimplementedMessageServiceServer) RestoreConversation(context.Context, *RestoreConversationRequest) (*RestoreConversationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestoreConversation not implemented")
+}
+func (UnimplementedMessageServiceServer) DeleteConversation(context.Context, *DeleteConversationRequest) (*DeleteConversationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteConversation not implemented")
 }
 func (UnimplementedMessageServiceServer) mustEmbedUnimplementedMessageServiceServer() {}
 func (UnimplementedMessageServiceServer) testEmbeddedByValue()                        {}
@@ -206,6 +254,60 @@ func _MessageService_GetMessageByID_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MessageService_SaveMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessageServiceServer).SaveMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MessageService_SaveMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessageServiceServer).SaveMessage(ctx, req.(*SaveMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MessageService_RestoreConversation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreConversationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessageServiceServer).RestoreConversation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MessageService_RestoreConversation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessageServiceServer).RestoreConversation(ctx, req.(*RestoreConversationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MessageService_DeleteConversation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteConversationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MessageServiceServer).DeleteConversation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MessageService_DeleteConversation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MessageServiceServer).DeleteConversation(ctx, req.(*DeleteConversationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // MessageService_ServiceDesc is the grpc.ServiceDesc for MessageService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -228,6 +330,18 @@ var MessageService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMessageByID",
 			Handler:    _MessageService_GetMessageByID_Handler,
+		},
+		{
+			MethodName: "SaveMessage",
+			Handler:    _MessageService_SaveMessage_Handler,
+		},
+		{
+			MethodName: "RestoreConversation",
+			Handler:    _MessageService_RestoreConversation_Handler,
+		},
+		{
+			MethodName: "DeleteConversation",
+			Handler:    _MessageService_DeleteConversation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

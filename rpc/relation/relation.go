@@ -3,11 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	_ "time/tzdata"
 
 	"github.com/archyhsh/gochat/rpc/pb"
 	"github.com/archyhsh/gochat/rpc/relation/internal/config"
 	"github.com/archyhsh/gochat/rpc/relation/internal/server"
 	"github.com/archyhsh/gochat/rpc/relation/internal/svc"
+	"github.com/joho/godotenv"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -21,8 +23,11 @@ var configFile = flag.String("f", "etc/relation.yaml", "the config file")
 func main() {
 	flag.Parse()
 
+	// Load .env file
+	_ = godotenv.Load("../.env")
+
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	ctx := svc.NewServiceContext(c)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {

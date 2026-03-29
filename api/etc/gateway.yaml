@@ -1,0 +1,53 @@
+Name: gateway
+Host: 0.0.0.0
+Port: 8888
+
+UserRpc: 
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}
+    Key: user.rpc
+MessageRpc:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}
+    Key: message.rpc
+RelationRpc:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}
+    Key: relation.rpc
+GroupRpc:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}
+    Key: group.rpc
+
+JWT:
+  JwtSecret: ${JWT_SECRET}
+  ExpireHours: 72
+
+Kafka:
+  Brokers:
+    - ${KAFKA_BROKERS}
+  Topic: message-topic
+
+Redis:
+  - Host: ${REDIS_HOST}
+    Type: node
+
+Etcd:
+  Hosts:
+    - ${ETCD_HOST}
+  Key: gateway.api.router
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9091
+  Path: /metrics
+
+Telemetry:
+  Name: gateway.api
+  Endpoint: ${TELEMETRY_ENDPOINT}
+  Sampler: 1.0
+  Batcher: otlpgrpc

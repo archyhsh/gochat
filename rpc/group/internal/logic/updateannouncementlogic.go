@@ -10,6 +10,7 @@ import (
 	"github.com/archyhsh/gochat/rpc/group/model"
 	"github.com/archyhsh/gochat/rpc/pb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,8 +31,18 @@ func NewUpdateAnnouncementLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRequest) (*pb.UpdateAnnouncementResponse, error) {
-	// TODO: Get userID from context
-	userID := int64(1)
+	md, ok := metadata.FromIncomingContext(l.ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+	userIdStrs := md.Get("user_id")
+	if len(userIdStrs) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "user_id not found in metadata")
+	}
+	userID, err := strconv.ParseInt(userIdStrs[0], 10, 64)
+	if err != nil {
+		return nil, status.Error(codes.Unauthenticated, "invalid user_id in metadata")
+	}
 	member, err := l.svcCtx.GroupMemberModel.FindMemberByGroupIdAndUserId(l.ctx, in.GroupId, userID)
 	if err != nil {
 		if err == model.ErrNotFound {
@@ -41,10 +52,10 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 		}
 		return nil, status.Error(codes.Internal, "failed to query member status")
 	}
-
-	if member.Role < 1 {
+	// only group owner and admins can update announcement
+	if member.Role < 2 {
 		return &pb.UpdateAnnouncementResponse{
-			Base: &pb.BaseResponse{Code: 403, Message: "Permission denied"},
+			Base: &pb.BaseResponse{Code: 403, Message: "Permission denied: only owner can update announcement"},
 		}, nil
 	}
 
@@ -54,25 +65,25 @@ func (l *UpdateAnnouncementLogic) UpdateAnnouncement(in *pb.UpdateAnnouncementRe
 	}
 
 	group.Announcement = in.Content
+	group.MetaVersion = time.Now().UnixNano()
 	err = l.svcCtx.GroupModel.Update(l.ctx, group)
 	if err != nil {
 		l.Errorf("UpdateAnnouncement failed: %v", err)
 		return nil, status.Error(codes.Internal, "failed to update announcement")
 	}
 
-	if l.svcCtx.Config.Producer != nil {
+	if l.svcCtx.Producer != nil {
 		event := map[string]interface{}{
 			"type":      "group_event",
-			"action":    "updateAnnouncement",
+			"action":    "update_announcement",
 			"group_id":  in.GroupId,
+			"user_id":   userID,
+			"version":   group.MetaVersion,
 			"timestamp": time.Now().Unix(),
 		}
 		data, _ := json.Marshal(event)
 		key := strconv.FormatInt(in.GroupId, 10)
-		err = l.svcCtx.Config.Producer.Send([]byte(key), data)
-		if err != nil {
-			l.Errorf("Failed to send Kafka event for UpdateAnnouncement: %v", err)
-		}
+		_ = l.svcCtx.Producer.Send(l.ctx, []byte(key), data)
 	}
 
 	return &pb.UpdateAnnouncementResponse{

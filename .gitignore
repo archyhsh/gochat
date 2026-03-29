@@ -51,9 +51,6 @@ web/dist/
 # Air (热重载)
 .air.*.toml
 
-# Swagger 生成文件
-docs/swagger/
-
 # 证书
 *.pem
 *.key
@@ -66,3 +63,7 @@ data/
 
 # Kubernetes secrets
 deployments/k8s/secrets/
+
+# 文档
+*.txt
+docs/

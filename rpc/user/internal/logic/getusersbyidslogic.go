@@ -27,7 +27,7 @@ func NewGetUsersByIdsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Get
 func (l *GetUsersByIdsLogic) GetUsersByIds(in *pb.GetUsersByIdsRequest) (*pb.GetUsersByIdsResponse, error) {
 	users, err := l.svcCtx.UserModel.SearchUsersByIds(l.ctx, in.UserIds)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "批量查询用户失败")
+		return nil, status.Error(codes.Internal, "fail to query users: "+err.Error())
 	}
 	var pbUsers []*pb.User
 	for _, u := range users {

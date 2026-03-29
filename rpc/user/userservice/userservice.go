@@ -14,6 +14,8 @@ import (
 )
 
 type (
+	ForgotPasswordRequest  = pb.ForgotPasswordRequest
+	ForgotPasswordResponse = pb.ForgotPasswordResponse
 	GetCurrentUserRequest  = pb.GetCurrentUserRequest
 	GetCurrentUserResponse = pb.GetCurrentUserResponse
 	GetUserRequest         = pb.GetUserRequest
@@ -38,6 +40,7 @@ type (
 		UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*UpdateUserResponse, error)
 		SearchUsers(ctx context.Context, in *SearchUsersRequest, opts ...grpc.CallOption) (*SearchUsersResponse, error)
 		GetUsersByIds(ctx context.Context, in *GetUsersByIdsRequest, opts ...grpc.CallOption) (*GetUsersByIdsResponse, error)
+		ForgotPassword(ctx context.Context, in *ForgotPasswordRequest, opts ...grpc.CallOption) (*ForgotPasswordResponse, error)
 	}
 
 	defaultUserService struct {
@@ -84,4 +87,9 @@ func (m *defaultUserService) SearchUsers(ctx context.Context, in *SearchUsersReq
 func (m *defaultUserService) GetUsersByIds(ctx context.Context, in *GetUsersByIdsRequest, opts ...grpc.CallOption) (*GetUsersByIdsResponse, error) {
 	client := pb.NewUserServiceClient(m.cli.Conn())
 	return client.GetUsersByIds(ctx, in, opts...)
+}
+
+func (m *defaultUserService) ForgotPassword(ctx context.Context, in *ForgotPasswordRequest, opts ...grpc.CallOption) (*ForgotPasswordResponse, error) {
+	client := pb.NewUserServiceClient(m.cli.Conn())
+	return client.ForgotPassword(ctx, in, opts...)
 }

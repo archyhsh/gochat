@@ -2,9 +2,65 @@ package kafka
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/IBM/sarama"
+	"go.opentelemetry.io/otel"
 )
+
+type ProducerHeaderCarrier struct {
+	Headers *[]sarama.RecordHeader
+}
+
+func (c *ProducerHeaderCarrier) Get(key string) string {
+	for _, h := range *c.Headers {
+		if string(h.Key) == key {
+			return string(h.Value)
+		}
+	}
+	return ""
+}
+
+func (c *ProducerHeaderCarrier) Set(key string, value string) {
+	*c.Headers = append(*c.Headers, sarama.RecordHeader{
+		Key:   []byte(key),
+		Value: []byte(value),
+	})
+}
+
+func (c *ProducerHeaderCarrier) Keys() []string {
+	keys := make([]string, len(*c.Headers))
+	for i, h := range *c.Headers {
+		keys[i] = string(h.Key)
+	}
+	return keys
+}
+
+type ConsumerHeaderCarrier struct {
+	Headers []*sarama.RecordHeader
+}
+
+func (c *ConsumerHeaderCarrier) Get(key string) string {
+	for _, h := range c.Headers {
+		if string(h.Key) == key {
+			return string(h.Value)
+		}
+	}
+	return ""
+}
+
+func (c *ConsumerHeaderCarrier) Set(key string, value string) {
+	// Not usually used for extraction
+}
+
+func (c *ConsumerHeaderCarrier) Keys() []string {
+	keys := make([]string, len(c.Headers))
+	for i, h := range c.Headers {
+		keys[i] = string(h.Key)
+	}
+	return keys
+}
 
 type Producer struct {
 	producer sarama.SyncProducer
@@ -26,24 +82,40 @@ func NewProducer(brokers []string, topic string) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) Send(key, value []byte) error {
-	msg := &sarama.ProducerMessage{
-		Topic: p.topic,
-		Key:   sarama.ByteEncoder(key),
-		Value: sarama.ByteEncoder(value),
-	}
-	_, _, err := p.producer.SendMessage(msg)
-	return err
+func (p *Producer) Send(ctx context.Context, key, value []byte) error {
+	return p.SafeSendToTopic(ctx, p.topic, key, value)
 }
 
-func (p *Producer) SendToTopic(topic string, key, value []byte) error {
+func (p *Producer) SendToTopic(ctx context.Context, topic string, key, value []byte) error {
+	return p.SafeSendToTopic(ctx, topic, key, value)
+}
+
+func (p *Producer) SafeSendToTopic(ctx context.Context, topic string, key, value []byte) error {
+	var headers []sarama.RecordHeader
+	carrier := &ProducerHeaderCarrier{Headers: &headers}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+
 	msg := &sarama.ProducerMessage{
-		Topic: topic,
-		Key:   sarama.ByteEncoder(key),
-		Value: sarama.ByteEncoder(value),
+		Topic:   topic,
+		Key:     sarama.ByteEncoder(key),
+		Value:   sarama.ByteEncoder(value),
+		Headers: headers,
 	}
-	_, _, err := p.producer.SendMessage(msg)
-	return err
+
+	var lastErr error
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		_, _, lastErr = p.producer.SendMessage(msg)
+		if lastErr == nil {
+			return nil
+		}
+
+		if i < maxRetries-1 {
+			backoff := time.Duration(i+1) * 200 * time.Millisecond
+			time.Sleep(backoff)
+		}
+	}
+	return fmt.Errorf("failed to send message to kafka after %d retries: %v", maxRetries, lastErr)
 }
 
 func (p *Producer) Close() error {
@@ -64,6 +136,8 @@ func NewConsumer(brokers []string, groupID string, topics []string, handler Cons
 	config := sarama.NewConfig()
 	config.Consumer.Group.Rebalance.Strategy = sarama.NewBalanceStrategyRoundRobin()
 	config.Consumer.Offsets.Initial = sarama.OffsetNewest
+	// 关闭自动提交，改为手动提交以确保消息不丢失
+	config.Consumer.Offsets.AutoCommit.Enable = false
 	consumer, err := sarama.NewConsumerGroup(brokers, groupID, config)
 	if err != nil {
 		return nil, err
@@ -103,11 +177,17 @@ func (h *consumerGroupHandler) Cleanup(_ sarama.ConsumerGroupSession) error { re
 
 func (h *consumerGroupHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for message := range claim.Messages() {
-		if err := h.handler.Handle(session.Context(), message); err != nil {
-			// 记录错误但继续处理
+		// Extract tracing context from Kafka headers
+		carrier := &ConsumerHeaderCarrier{Headers: message.Headers}
+		ctx := otel.GetTextMapPropagator().Extract(session.Context(), carrier)
+
+		if err := h.handler.Handle(ctx, message); err != nil {
+			// Log error but continue
 			continue
 		}
 		session.MarkMessage(message, "")
+		// 手动提交位移，确保消息在被成功处理后才被标记为已消费
+		session.Commit()
 	}
 	return nil
 }

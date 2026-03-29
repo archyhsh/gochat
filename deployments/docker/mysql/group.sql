@@ -1,6 +1,8 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
+USE `gochat_group`;
+
 CREATE TABLE IF NOT EXISTS `group` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL,
@@ -11,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `group` (
   `member_count` INT DEFAULT 1,
   `announcement` VARCHAR(1000) DEFAULT '',
   `status` TINYINT DEFAULT 1 COMMENT 'status: 0closed 1normal',
+  `meta_version` BIGINT NOT NULL DEFAULT 0 COMMENT 'group name and announcement version',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

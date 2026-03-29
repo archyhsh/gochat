@@ -42,3 +42,18 @@ func (s *MessageServiceServer) GetMessageByID(ctx context.Context, in *pb.GetMes
 	l := logic.NewGetMessageByIDLogic(ctx, s.svcCtx)
 	return l.GetMessageByID(in)
 }
+
+func (s *MessageServiceServer) SaveMessage(ctx context.Context, in *pb.SaveMessageRequest) (*pb.SaveMessageResponse, error) {
+	l := logic.NewSaveMessageLogic(ctx, s.svcCtx)
+	return l.SaveMessage(in)
+}
+
+func (s *MessageServiceServer) RestoreConversation(ctx context.Context, in *pb.RestoreConversationRequest) (*pb.RestoreConversationResponse, error) {
+	l := logic.NewRestoreConversationLogic(ctx, s.svcCtx)
+	return l.RestoreConversation(in)
+}
+
+func (s *MessageServiceServer) DeleteConversation(ctx context.Context, in *pb.DeleteConversationRequest) (*pb.DeleteConversationResponse, error) {
+	l := logic.NewDeleteConversationLogic(ctx, s.svcCtx)
+	return l.DeleteConversation(in)
+}

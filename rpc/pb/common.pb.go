@@ -255,13 +255,15 @@ func (x *PagingRequest) GetCursor() string {
 }
 
 type UserAvatar struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Nickname      string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"`
-	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`
-	Remark        string                 `protobuf:"bytes,4,opt,name=remark,proto3" json:"remark,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	UserId          int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Nickname        string                 `protobuf:"bytes,2,opt,name=nickname,proto3" json:"nickname,omitempty"`
+	Avatar          string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`
+	Remark          string                 `protobuf:"bytes,4,opt,name=remark,proto3" json:"remark,omitempty"`
+	InfoVersion     int64                  `protobuf:"varint,5,opt,name=info_version,json=infoVersion,proto3" json:"info_version,omitempty"`
+	RelationVersion int64                  `protobuf:"varint,6,opt,name=relation_version,json=relationVersion,proto3" json:"relation_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *UserAvatar) Reset() {
@@ -322,11 +324,27 @@ func (x *UserAvatar) GetRemark() string {
 	return ""
 }
 
+func (x *UserAvatar) GetInfoVersion() int64 {
+	if x != nil {
+		return x.InfoVersion
+	}
+	return 0
+}
+
+func (x *UserAvatar) GetRelationVersion() int64 {
+	if x != nil {
+		return x.RelationVersion
+	}
+	return 0
+}
+
 type GroupSummary struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	GroupId       int64                  `protobuf:"varint,1,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Avatar        string                 `protobuf:"bytes,3,opt,name=avatar,proto3" json:"avatar,omitempty"`
+	MetaVersion   int64                  `protobuf:"varint,4,opt,name=meta_version,json=metaVersion,proto3" json:"meta_version,omitempty"`
+	OwnerId       int64                  `protobuf:"varint,5,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -382,6 +400,20 @@ func (x *GroupSummary) GetAvatar() string {
 	return ""
 }
 
+func (x *GroupSummary) GetMetaVersion() int64 {
+	if x != nil {
+		return x.MetaVersion
+	}
+	return 0
+}
+
+func (x *GroupSummary) GetOwnerId() int64 {
+	if x != nil {
+		return x.OwnerId
+	}
+	return 0
+}
+
 var File_common_proto protoreflect.FileDescriptor
 
 const file_common_proto_rawDesc = "" +
@@ -395,17 +427,21 @@ const file_common_proto_rawDesc = "" +
 	"\rPagingRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06cursor\x18\x03 \x01(\tR\x06cursor\"q\n" +
+	"\x06cursor\x18\x03 \x01(\tR\x06cursor\"\xbf\x01\n" +
 	"\n" +
 	"UserAvatar\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
 	"\x06avatar\x18\x03 \x01(\tR\x06avatar\x12\x16\n" +
-	"\x06remark\x18\x04 \x01(\tR\x06remark\"U\n" +
+	"\x06remark\x18\x04 \x01(\tR\x06remark\x12!\n" +
+	"\finfo_version\x18\x05 \x01(\x03R\vinfoVersion\x12)\n" +
+	"\x10relation_version\x18\x06 \x01(\x03R\x0frelationVersion\"\x93\x01\n" +
 	"\fGroupSummary\x12\x19\n" +
 	"\bgroup_id\x18\x01 \x01(\x03R\agroupId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x16\n" +
-	"\x06avatar\x18\x03 \x01(\tR\x06avatar*z\n" +
+	"\x06avatar\x18\x03 \x01(\tR\x06avatar\x12!\n" +
+	"\fmeta_version\x18\x04 \x01(\x03R\vmetaVersion\x12\x19\n" +
+	"\bowner_id\x18\x05 \x01(\x03R\aownerId*z\n" +
 	"\x0eDevicePlatform\x12\x18\n" +
 	"\x14PLATFORM_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPLATFORM_WEB\x10\x01\x12\x10\n" +

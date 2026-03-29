@@ -48,6 +48,7 @@ type (
 		FriendId  int64     `db:"friend_id"`
 		Remark    string    `db:"remark"`
 		Status    int64     `db:"status"` // status: 0normal 1blacklisted
+		Version   int64     `db:"version"`
 		CreatedAt time.Time `db:"created_at"`
 		UpdatedAt time.Time `db:"updated_at"`
 	}
@@ -116,8 +117,8 @@ func (m *defaultFriendshipModel) Insert(ctx context.Context, data *Friendship) (
 	friendshipIdKey := fmt.Sprintf("%s%v", cacheFriendshipIdPrefix, data.Id)
 	friendshipUserIdFriendIdKey := fmt.Sprintf("%s%v:%v", cacheFriendshipUserIdFriendIdPrefix, data.UserId, data.FriendId)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?)", m.table, friendshipRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.UserId, data.FriendId, data.Remark, data.Status)
+		query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?, ?)", m.table, friendshipRowsExpectAutoSet)
+		return conn.ExecCtx(ctx, query, data.UserId, data.FriendId, data.Remark, data.Status, data.Version)
 	}, friendshipIdKey, friendshipUserIdFriendIdKey)
 	return ret, err
 }
@@ -132,7 +133,7 @@ func (m *defaultFriendshipModel) Update(ctx context.Context, newData *Friendship
 	friendshipUserIdFriendIdKey := fmt.Sprintf("%s%v:%v", cacheFriendshipUserIdFriendIdPrefix, data.UserId, data.FriendId)
 	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, friendshipRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.UserId, newData.FriendId, newData.Remark, newData.Status, newData.Id)
+		return conn.ExecCtx(ctx, query, newData.UserId, newData.FriendId, newData.Remark, newData.Status, newData.Version, newData.Id)
 	}, friendshipIdKey, friendshipUserIdFriendIdKey)
 	return err
 }

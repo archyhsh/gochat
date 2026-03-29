@@ -43,7 +43,12 @@ func (l *LoginLogic) Login(in *pb.LoginRequest) (*pb.LoginResponse, error) {
 		Token: Token,
 		User: &pb.User{
 			Id:       user.Id,
+			Username: user.Username,
 			Nickname: user.Nickname,
+			Avatar:   user.Avatar,
+			Email:    user.Email,
+			Phone:    user.Phone,
+			Gender:   int32(user.Gender),
 		},
 	}, nil
 }

@@ -41,8 +41,12 @@ func (l *SearchUsersLogic) SearchUsers(in *pb.SearchUsersRequest) (*pb.SearchUse
 	var userSummaries []*pb.User
 	for _, u := range users {
 		userSummaries = append(userSummaries, &pb.User{
+			Id:       u.Id,
 			Nickname: u.Nickname,
 			Avatar:   u.Avatar,
+			Phone:    u.Phone,
+			Email:    u.Email,
+			Gender:   int32(u.Gender),
 		})
 	}
 
