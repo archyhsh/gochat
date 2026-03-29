@@ -5,9 +5,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	_ "time/tzdata"
 
@@ -25,45 +25,72 @@ var configFile = flag.String("f", "etc/gateway.yaml", "the config file")
 func main() {
 	flag.Parse()
 
-	// Load .env from common locations
-	err := godotenv.Load("../.env")
-	if err != nil {
-		log.Printf("Warning: .env file not loaded: %v", err)
-	} else {
-		log.Printf("Success: .env file loaded")
-	}
+	_ = godotenv.Load("../.env")
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
 
-	server := rest.MustNewServer(c.RestConf)
+	// Enable CORS for all routes
+	server := rest.MustNewServer(c.RestConf, rest.WithCors())
 	defer server.Stop()
 
-	staticDir, _ := filepath.Abs("../web/static")
-	fs := http.FileServer(http.Dir(staticDir))
+	// 1. Audit Middleware (Log all incoming requests)
+	server.Use(func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("[AUDIT] %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			next(w, r)
+		}
+	})
 
+	// Debug Route
 	server.AddRoute(rest.Route{
 		Method: http.MethodGet,
-		Path:   "/",
+		Path:   "/ping",
 		Handler: func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			w.Write([]byte("pong"))
 		},
 	})
 
-	staticPaths := []string{"/static/:file", "/static/css/:file", "/static/js/:file"}
-	for _, p := range staticPaths {
-		server.AddRoute(rest.Route{
-			Method: http.MethodGet,
-			Path:   p,
-			Handler: func(w http.ResponseWriter, r *http.Request) {
-				http.StripPrefix("/static/", fs).ServeHTTP(w, r)
-			},
-		})
-	}
-
+	// 2. Initialize Service Context
 	ctx := svc.NewServiceContext(c)
+
+	// 3. Register Business Handlers (API Routes)
 	handler.RegisterHandlers(server, ctx)
 
-	fmt.Printf("Starting gateway HTTP server at %s:%d...\n", c.Host, c.Port)
+	// 4. Static Files Discovery
+	staticDir := ""
+	targets := []string{"/app/web/static", "web/static", "../web/static", "./web/static"}
+	for _, t := range targets {
+		if info, err := os.Stat(t); err == nil && info.IsDir() {
+			staticDir, _ = filepath.Abs(t)
+			break
+		}
+	}
+
+	if staticDir != "" {
+		log.Printf("Serving static files from: %s", staticDir)
+		fs := http.FileServer(http.Dir(staticDir))
+
+		// Root
+		server.AddRoute(rest.Route{
+			Method: http.MethodGet,
+			Path:   "/",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			},
+		})
+
+		// Assets (Standard multi-segment support)
+		prefixes := []string{"/static/", "/static/css/", "/static/js/", "/static/img/"}
+		for _, prefix := range prefixes {
+			server.AddRoute(rest.Route{
+				Method:  http.MethodGet,
+				Path:    prefix + ":file",
+				Handler: http.StripPrefix("/static/", fs).ServeHTTP,
+			})
+		}
+	}
+
+	log.Printf("Starting gateway HTTP server at %s:%d...", c.Host, c.Port)
 	server.Start()
 }

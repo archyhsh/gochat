@@ -146,7 +146,7 @@ services:
       - DB_SOURCE=gochat:gochat123@tcp(mysql:3306)/gochat_user?charset=utf8mb4&parseTime=true&loc=UTC
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
       - JWT_SECRET=gochat-default-secret-key
 
   relation-rpc:
@@ -164,7 +164,7 @@ services:
       - DB_SOURCE=gochat:gochat123@tcp(mysql:3306)/gochat_relation?charset=utf8mb4&parseTime=true&loc=UTC
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
 
   group-rpc:
     build:
@@ -181,7 +181,7 @@ services:
       - DB_SOURCE=gochat:gochat123@tcp(mysql:3306)/gochat_group?charset=utf8mb4&parseTime=true&loc=UTC
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
 
   message-rpc-1:
     build:
@@ -200,7 +200,7 @@ services:
       - DB_SOURCE=gochat:gochat123@tcp(mysql:3306)/gochat_message?charset=utf8mb4&parseTime=true&loc=UTC
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
 
   message-rpc-2:
     build:
@@ -219,7 +219,34 @@ services:
       - DB_SOURCE=gochat:gochat123@tcp(mysql:3306)/gochat_message?charset=utf8mb4&parseTime=true&loc=UTC
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
+
+  # --- DEVELOPMENT NODES (Commented out production style, Added volume mounts) ---
+
+  # gateway-1 (Original commented out)
+  # gateway-1:
+  #   build:
+  #     context: ..
+  #     dockerfile: ./api/Dockerfile
+  #   container_name: gochat-gateway-1
+  #   hostname: gateway-1
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8881:8888"
+  #   depends_on:
+  #     - user-rpc
+  #     - group-rpc
+  #     - relation-rpc
+  #     - message-rpc-1
+  #     - kafka
+  #     - redis
+  #   environment:
+  #     - HOSTNAME=gateway-1
+  #     - ETCD_HOST=etcd:2379
+  #     - REDIS_HOST=redis:6379
+  #     - KAFKA_BROKERS=kafka:9092
+  #     - TELEMETRY_ENDPOINT=jaeger:4317
+  #     - JWT_SECRET=gochat-default-secret-key
 
   gateway-1:
     build:
@@ -237,12 +264,14 @@ services:
       - message-rpc-1
       - kafka
       - redis
+    volumes:
+      - ../web:/app/web # Hot Sync for development
     environment:
       - HOSTNAME=gateway-1
       - ETCD_HOST=etcd:2379
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
       - JWT_SECRET=gochat-default-secret-key
 
   gateway-2:
@@ -261,12 +290,14 @@ services:
       - message-rpc-1
       - kafka
       - redis
+    volumes:
+      - ../web:/app/web # Hot Sync for development
     environment:
       - HOSTNAME=gateway-2
       - ETCD_HOST=etcd:2379
       - REDIS_HOST=redis:6379
       - KAFKA_BROKERS=kafka:9092
-      - TELEMETRY_ENDPOINT=http://jaeger:4317
+      - TELEMETRY_ENDPOINT=jaeger:4317
       - JWT_SECRET=gochat-default-secret-key
 
 volumes:

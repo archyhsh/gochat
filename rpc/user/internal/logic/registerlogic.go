@@ -50,7 +50,10 @@ func (l *RegisterLogic) Register(in *pb.RegisterRequest) (*pb.RegisterResponse, 
 	return &pb.RegisterResponse{
 		Base: &pb.BaseResponse{Code: 200},
 		User: &pb.User{
-			Id: newID,
+			Id:       newID,
+			Username: userModel.Username,
+			Nickname: userModel.Nickname,
+			Gender:   0,
 		},
 	}, nil
 }

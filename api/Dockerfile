@@ -22,6 +22,7 @@ WORKDIR /app
 
 COPY --from=builder /app/gateway /app/gateway
 COPY --from=builder /app/api/etc /app/etc
+COPY --from=builder /app/web /app/web
 
 EXPOSE 8888
 
